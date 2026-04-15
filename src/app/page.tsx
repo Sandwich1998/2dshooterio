@@ -1154,7 +1154,8 @@ export default function Home() {
     let rafId = 0;
     const render = () => {
       const dpr = dprRef.current;
-      let state = stateRef.current;
+      const latestState = stateRef.current;
+      let state = latestState;
       const width = canvas.width / dpr;
       const height = canvas.height / dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1205,6 +1206,8 @@ export default function Home() {
       }
 
       const me = state.players.find((player) => player.id === myIdRef.current);
+      const authoritativeMe =
+        latestState?.players.find((player) => player.id === myIdRef.current) ?? me;
       const now = performance.now();
       const lastFrame = lastFrameRef.current;
       const dt = lastFrame ? Math.min(0.05, Math.max(0.001, (now - lastFrame) / 1000)) : 1 / 60;
@@ -1216,21 +1219,24 @@ export default function Home() {
         return { x: x / len, y: y / len };
       })();
       let predictedMe = me;
-      if (me && me.alive) {
+      if (authoritativeMe && authoritativeMe.alive) {
         let predicted = predictedRef.current;
-        if (!predicted || predicted.id !== me.id) {
+        if (!predicted || predicted.id !== authoritativeMe.id) {
           predicted = {
-            id: me.id,
-            x: me.x,
-            y: me.y,
-            serverX: me.x,
-            serverY: me.y,
+            id: authoritativeMe.id,
+            x: authoritativeMe.x,
+            y: authoritativeMe.y,
+            serverX: authoritativeMe.x,
+            serverY: authoritativeMe.y,
             lastServerTime: state.time,
           };
         }
-        if (me.x !== predicted.serverX || me.y !== predicted.serverY) {
-          predicted.serverX = me.x;
-          predicted.serverY = me.y;
+        if (
+          authoritativeMe.x !== predicted.serverX ||
+          authoritativeMe.y !== predicted.serverY
+        ) {
+          predicted.serverX = authoritativeMe.x;
+          predicted.serverY = authoritativeMe.y;
           predicted.lastServerTime = state.time;
         }
         const inputLen = Math.hypot(inputDir.x, inputDir.y);
@@ -1245,19 +1251,27 @@ export default function Home() {
           );
           predicted.x = move.x;
           predicted.y = move.y;
-          const correction = Math.min(1, dt * 2);
-          predicted.x = lerp(predicted.x, me.x, correction);
-          predicted.y = lerp(predicted.y, me.y, correction);
+          const serverDrift = Math.hypot(
+            predicted.x - authoritativeMe.x,
+            predicted.y - authoritativeMe.y
+          );
+          if (serverDrift > 64) {
+            predicted.x = authoritativeMe.x;
+            predicted.y = authoritativeMe.y;
+          }
         } else {
           // Stop local movement immediately on key release instead of visually coasting.
-          const serverDrift = Math.hypot(predicted.x - me.x, predicted.y - me.y);
+          const serverDrift = Math.hypot(
+            predicted.x - authoritativeMe.x,
+            predicted.y - authoritativeMe.y
+          );
           if (serverDrift > 24) {
-            predicted.x = me.x;
-            predicted.y = me.y;
+            predicted.x = authoritativeMe.x;
+            predicted.y = authoritativeMe.y;
           }
         }
         predictedRef.current = predicted;
-        predictedMe = { ...me, x: predicted.x, y: predicted.y };
+        predictedMe = { ...authoritativeMe, x: predicted.x, y: predicted.y };
       } else if (predictedRef.current) {
         predictedRef.current = null;
       }
@@ -1268,11 +1282,11 @@ export default function Home() {
         (me?.alive ? me : alivePlayers[0]) ??
         me;
 
-      if (me?.alive && spectateRef.current !== me.id) {
-        spectateRef.current = me.id;
-        setSpectateId(me.id);
+      if (authoritativeMe?.alive && spectateRef.current !== authoritativeMe.id) {
+        spectateRef.current = authoritativeMe.id;
+        setSpectateId(authoritativeMe.id);
       }
-      if (!me?.alive && spectateTarget && spectateTarget.id !== spectateRef.current) {
+      if (!authoritativeMe?.alive && spectateTarget && spectateTarget.id !== spectateRef.current) {
         spectateRef.current = spectateTarget.id;
         setSpectateId(spectateTarget.id);
       }
