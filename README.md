@@ -1,4 +1,4 @@
-Second Person Shooter is a top-down, .io-style Last Man Standing prototype built with Next.js and a lightweight Node WebSocket server.
+Dustline is a top-down tactical battle royale built with Next.js and a lightweight Node WebSocket server.
 
 ## Getting Started
 

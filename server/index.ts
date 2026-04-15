@@ -1141,7 +1141,7 @@ wss.on("connection", (socket) => {
   const id = randomUUID();
   const color = palette[Math.floor(Math.random() * palette.length)];
   const room = findRoomForJoin();
-  const player = createPlayer(id, `Runner-${id.slice(0, 4)}`, color);
+  const player = createPlayer(id, `Operator-${id.slice(0, 4)}`, color);
 
   room.players.set(id, player);
   room.sockets.set(id, socket);

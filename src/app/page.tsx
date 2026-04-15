@@ -122,6 +122,8 @@ const fillNoiseData = (data: Float32Array, intensity: number) => {
   }
 };
 
+const hostLabel = (url: string) => url.replace(/^wss?:\/\//, "");
+
 const circleIntersectsRect = (
   cx: number,
   cy: number,
@@ -194,7 +196,7 @@ export default function Home() {
   const aimSmoothRef = useRef({ x: 1, y: 0 });
 
   const [status, setStatus] = useState<"idle" | "connecting" | "ready">("idle");
-  const [name, setName] = useState("Runner");
+  const [name, setName] = useState("Operator");
   const [perfMode, setPerfMode] = useState(false);
   const skins = useMemo(
     () => ["#2f7dff", "#ff5c7a", "#f5c04d", "#3ddc97", "#6f78ff", "#ff8a4c", "#25c2ff"],
@@ -1906,23 +1908,23 @@ export default function Home() {
       <canvas ref={canvasRef} className="h-screen w-screen" />
 
       <div className="pointer-events-none absolute left-0 top-0 flex h-full w-full flex-col justify-between">
-        <div className="flex items-start justify-between px-6 pt-6">
+        <div className="flex flex-col gap-3 px-4 pt-4 md:px-6 md:pt-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="hud-panel ui-slide-in rounded-2xl px-5 py-4 backdrop-blur">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="hud-title text-xs uppercase tracking-[0.35em] text-black/60">
-                  Second Person Shooter
+                  Dustline
                 </p>
-                <p className="text-lg font-semibold text-black">Last Man Standing</p>
+                <p className="text-lg font-semibold text-black">Tactical Battle Royale</p>
                 <p className="mt-1 text-[10px] uppercase tracking-[0.35em] text-black/50">
-                  Vanguard UI v2
+                  Live Drop Zone
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 <span className="ui-chip">
                   Ping {status === "ready" ? `${pingMs} ms` : "--"}
                 </span>
-                <span className="ui-chip">Server {WS_URL.replace("ws://", "")}</span>
+                <span className="ui-chip">Server {hostLabel(WS_URL)}</span>
               </div>
             </div>
             <div className="mt-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-black/50">
@@ -1935,7 +1937,7 @@ export default function Home() {
               </button>
             </div>
           </div>
-          <div className="flex w-72 flex-col gap-2 text-right">
+          <div className="flex w-full max-w-72 flex-col gap-2 self-end text-right">
             {killFeed.map((event) => (
               <div
                 key={event.id}
@@ -1953,7 +1955,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex items-end justify-between px-6 pb-6">
+        <div className="flex flex-col gap-3 px-4 pb-4 md:px-6 md:pb-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="hud-card ui-slide-in text-black/80">
             <p className="hud-label">Loadout</p>
             <div className="mt-1 flex items-center gap-2">
@@ -1978,7 +1980,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 self-end">
             <div className="hud-card ui-slide-in text-black/80">
               <p className="hud-label">HP</p>
               <p className="hud-value">{hud.hp}</p>
@@ -1996,7 +1998,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="pointer-events-none absolute left-6 top-40 w-80">
+      <div className="pointer-events-none absolute left-4 top-36 w-[min(20rem,calc(100%-2rem))] md:left-6 md:top-40 md:w-80">
         <div className="ui-panel-soft ui-slide-in rounded-2xl px-4 py-3 text-black/80 drop-shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
           <div className="max-h-40 space-y-1 overflow-hidden text-sm">
             {chatLog.slice(-6).map((msg) => (
@@ -2120,13 +2122,13 @@ export default function Home() {
       {stateRef.current && (
         <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center">
           {!stateRef.current.players.find((p) => p.id === myIdRef.current)?.alive && (
-            <div className="ui-panel-soft ui-slide-in pointer-events-auto flex items-center gap-4 rounded-full px-5 py-2 text-sm text-black backdrop-blur">
+            <div className="ui-panel-soft ui-slide-in pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-[28px] px-5 py-3 text-sm text-black backdrop-blur">
               <span className="text-xs uppercase tracking-[0.3em] text-black/50">Spectating</span>
               <button className="ui-button" onClick={() => handleSpectate(-1)}>
                 ← Prev
               </button>
               <span className="max-w-[140px] truncate text-sm font-semibold text-black">
-                {stateRef.current.players.find((p) => p.id === spectateId)?.name ?? "Player"}
+                {stateRef.current.players.find((p) => p.id === spectateId)?.name ?? "Operator"}
               </span>
               <button className="ui-button" onClick={() => handleSpectate(1)}>
                 Next →
@@ -2195,8 +2197,8 @@ export default function Home() {
               </div>
               <span className="ui-chip">Ping {pingMs} ms</span>
             </div>
-            <div className="mt-5 overflow-hidden rounded-2xl border border-black/10">
-              <div className="grid grid-cols-[56px_1fr_120px_120px] bg-[#f4f6fb] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-black/50">
+            <div className="mt-5 overflow-x-auto rounded-2xl border border-black/10">
+              <div className="grid min-w-[640px] grid-cols-[56px_1fr_120px_120px] bg-[#f4f6fb] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-black/50">
                 <span>Rank</span>
                 <span>Player</span>
                 <span>Kills</span>
@@ -2209,7 +2211,7 @@ export default function Home() {
                   .map((player, index) => (
                     <div
                       key={player.id}
-                      className={`grid grid-cols-[56px_1fr_120px_120px] items-center px-4 py-3 text-sm ${
+                      className={`grid min-w-[640px] grid-cols-[56px_1fr_120px_120px] items-center px-4 py-3 text-sm ${
                         player.alive ? "bg-white" : "bg-[#f7f8fb] text-black/60"
                       }`}
                     >
@@ -2240,12 +2242,12 @@ export default function Home() {
         <div className="absolute inset-0 flex items-center justify-center bg-white/70">
           <div className="w-full max-w-md rounded-3xl border border-black/10 bg-white px-8 py-10 text-black shadow-2xl">
             <p className="text-xs uppercase tracking-[0.35em] text-black/40">
-              Tactical Arena
+              Dustline
             </p>
-            <h1 className="mt-3 text-3xl font-semibold">Enter the Drop Zone</h1>
+            <h1 className="mt-3 text-3xl font-semibold">Drop Into The Line</h1>
             <p className="mt-2 text-sm text-black/60">
-              Fast, tactical .io battle royale. Grab crates, stay inside the fog
-              ring, and be the last alive.
+              Fast top-down firefights, clean sightlines, and one shrinking safe
+              zone. Loot fast, rotate harder, and survive the final circle.
             </p>
             <div className="mt-6 flex flex-col gap-3">
               <label className="text-xs uppercase tracking-[0.3em] text-black/50">
@@ -2255,7 +2257,7 @@ export default function Home() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-black placeholder:text-black/40 focus:border-black/40 focus:outline-none"
-                placeholder="Runner"
+                placeholder="Operator"
               />
             </div>
             <div className="mt-5">
@@ -2280,7 +2282,7 @@ export default function Home() {
               onClick={connect}
               className="ui-button ui-button-primary mt-6 w-full rounded-xl py-3 text-sm"
             >
-              {status === "connecting" ? "Connecting..." : "Deploy"}
+              {status === "connecting" ? "Connecting..." : "Enter Match"}
             </button>
             <div className="ui-panel-soft mt-6 rounded-2xl px-4 py-3">
               <p className="text-xs uppercase tracking-[0.3em] text-black/50">Controls</p>
