@@ -1521,12 +1521,9 @@ export default function Home() {
             predicted.x - authoritativeMe.x,
             predicted.y - authoritativeMe.y
           );
-          if (movingDrift > 180) {
+          if (movingDrift > 220) {
             predicted.x = authoritativeMe.x;
             predicted.y = authoritativeMe.y;
-          } else if (hadServerUpdate && movingDrift > 10) {
-            predicted.x = lerp(predicted.x, authoritativeMe.x, 0.18);
-            predicted.y = lerp(predicted.y, authoritativeMe.y, 0.18);
           }
         } else if (hadServerUpdate) {
           const settledDrift = Math.hypot(
