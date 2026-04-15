@@ -125,6 +125,13 @@ const fillNoiseData = (data: Float32Array, intensity: number) => {
 const hostLabel = (url: string) => url.replace(/^wss?:\/\//, "");
 const MOVEMENT_KEYS = new Set(["w", "a", "s", "d"]);
 
+const getInputDirection = (input: InputState) => {
+  const x = Number(input.right) - Number(input.left);
+  const y = Number(input.down) - Number(input.up);
+  const len = Math.hypot(x, y) || 1;
+  return { x: x / len, y: y / len };
+};
+
 const circleIntersectsRect = (
   cx: number,
   cy: number,
@@ -416,6 +423,15 @@ export default function Home() {
     inputRef.current.down = pressedKeysRef.current.has("s");
     inputRef.current.left = pressedKeysRef.current.has("a");
     inputRef.current.right = pressedKeysRef.current.has("d");
+  };
+
+  const clearHeldInput = () => {
+    pressedKeysRef.current.clear();
+    inputRef.current.up = false;
+    inputRef.current.down = false;
+    inputRef.current.left = false;
+    inputRef.current.right = false;
+    inputRef.current.shoot = false;
   };
 
   const playShotSound = () => {
@@ -792,8 +808,7 @@ export default function Home() {
         before.up !== inputRef.current.up ||
         before.down !== inputRef.current.down ||
         before.left !== inputRef.current.left ||
-        before.right !== inputRef.current.right ||
-        before.shoot !== inputRef.current.shoot
+        before.right !== inputRef.current.right
       ) {
         sendInputNow();
       }
@@ -811,19 +826,22 @@ export default function Home() {
       inputRef.current.shoot = false;
     };
 
-    const clearHeldInput = () => {
-      pressedKeysRef.current.clear();
-      inputRef.current.up = false;
-      inputRef.current.down = false;
-      inputRef.current.left = false;
-      inputRef.current.right = false;
-      inputRef.current.shoot = false;
-      sendInputNow();
-    };
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
         clearHeldInput();
+        sendInputNow();
+      }
+    };
+
+    const handleWindowBlur = () => {
+      clearHeldInput();
+      sendInputNow();
+    };
+
+    const handleMouseLeave = () => {
+      if (inputRef.current.shoot) {
+        clearHeldInput();
+        sendInputNow();
       }
     };
 
@@ -847,8 +865,9 @@ export default function Home() {
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mousedown", handleMouseDown);
     window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mouseleave", handleMouseLeave);
     window.addEventListener("wheel", preventZoomWheel, { passive: false });
-    window.addEventListener("blur", clearHeldInput);
+    window.addEventListener("blur", handleWindowBlur);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
@@ -858,8 +877,9 @@ export default function Home() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mousedown", handleMouseDown);
       window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("wheel", preventZoomWheel);
-      window.removeEventListener("blur", clearHeldInput);
+      window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [perfMode]);
@@ -890,6 +910,13 @@ export default function Home() {
     }, 1000 / 60);
 
     return () => window.clearInterval(interval);
+  }, [status]);
+
+  useEffect(() => {
+    if (status !== "ready") {
+      clearHeldInput();
+      predictedRef.current = null;
+    }
   }, [status]);
 
   const sendRespawn = () => {
@@ -1245,12 +1272,7 @@ export default function Home() {
       const lastFrame = lastFrameRef.current;
       const dt = lastFrame ? Math.min(0.05, Math.max(0.001, (now - lastFrame) / 1000)) : 1 / 60;
       lastFrameRef.current = now;
-      const inputDir = (() => {
-        const x = Number(inputRef.current.right) - Number(inputRef.current.left);
-        const y = Number(inputRef.current.down) - Number(inputRef.current.up);
-        const len = Math.hypot(x, y) || 1;
-        return { x: x / len, y: y / len };
-      })();
+      const inputDir = getInputDirection(inputRef.current);
       let predictedMe = me;
       if (authoritativeMe && authoritativeMe.alive) {
         let predicted = predictedRef.current;
@@ -1271,6 +1293,8 @@ export default function Home() {
         }
         const inputLen = Math.hypot(inputDir.x, inputDir.y);
         if (inputLen > 0) {
+          // The local player follows held keys immediately; server state only corrects
+          // genuinely bad divergence instead of dictating the feel frame-to-frame.
           const move = moveWithCollisionsClient(
             predicted.x,
             predicted.y,
