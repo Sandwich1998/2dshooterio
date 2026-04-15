@@ -245,6 +245,7 @@ export default function Home() {
   );
   const recentShotsRef = useRef<Set<string>>(new Set());
   const lastShotSoundAtRef = useRef(0);
+  const readyTickTimeoutRef = useRef<number | null>(null);
   const pingSentAtRef = useRef(0);
   const [pingMs, setPingMs] = useState(0);
   const reverbRef = useRef<{
@@ -633,6 +634,65 @@ export default function Home() {
     click.stop(now + 0.12);
   };
 
+  const playReadyTickSound = (weaponId?: string) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const weapon = weaponId ? resolveWeapon(weaponId) : undefined;
+    const now = audio.currentTime;
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+    const overtone = audio.createOscillator();
+    const overtoneGain = audio.createGain();
+
+    osc.type = "triangle";
+    overtone.type = "sine";
+    osc.frequency.setValueAtTime(weapon?.id === "awp" ? 1320 : 980, now);
+    osc.frequency.exponentialRampToValueAtTime(weapon?.id === "awp" ? 1700 : 1240, now + 0.05);
+    overtone.frequency.setValueAtTime(weapon?.id === "awp" ? 2300 : 1680, now);
+    overtone.frequency.exponentialRampToValueAtTime(
+      weapon?.id === "awp" ? 2520 : 1880,
+      now + 0.04
+    );
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    overtoneGain.gain.setValueAtTime(0.0001, now);
+    overtoneGain.gain.exponentialRampToValueAtTime(0.035, now + 0.008);
+    overtoneGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+    osc.connect(gain);
+    overtone.connect(overtoneGain);
+    if (audioChainRef.current) {
+      gain.connect(audioChainRef.current.masterGain);
+      overtoneGain.connect(audioChainRef.current.masterGain);
+    } else {
+      gain.connect(audio.destination);
+      overtoneGain.connect(audio.destination);
+    }
+
+    osc.start(now);
+    overtone.start(now);
+    osc.stop(now + 0.09);
+    overtone.stop(now + 0.06);
+  };
+
+  const cancelReadyTick = () => {
+    if (readyTickTimeoutRef.current !== null) {
+      window.clearTimeout(readyTickTimeoutRef.current);
+      readyTickTimeoutRef.current = null;
+    }
+  };
+
+  const scheduleReadyTick = (weaponId?: string) => {
+    cancelReadyTick();
+    const weapon = weaponId ? resolveWeapon(weaponId) : undefined;
+    if (!weapon || weapon.id !== "awp") return;
+    readyTickTimeoutRef.current = window.setTimeout(() => {
+      playReadyTickSound(weaponId);
+      readyTickTimeoutRef.current = null;
+    }, Math.max(120, Math.round(1000 / weapon.fireRate)));
+  };
+
   const playRarityStinger = (rarity: string) => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -916,6 +976,7 @@ export default function Home() {
     if (status !== "ready") {
       clearHeldInput();
       predictedRef.current = null;
+      cancelReadyTick();
     }
   }, [status]);
 
@@ -1807,14 +1868,26 @@ export default function Home() {
             ammoPulseRef.current = Date.now();
             setAmmoPulse(true);
             window.setTimeout(() => setAmmoPulse(false), 180);
+            if (
+              spectateTarget.id === myIdRef.current &&
+              spectateTarget.activeWeaponId === "awp" &&
+              nextHud.ammo < prev.ammo
+            ) {
+              scheduleReadyTick(spectateTarget.activeWeaponId);
+            }
           }
           if (prev.ammo > 0 && nextHud.ammo === 0 && nextHud.reserve > 0) {
             lastReloadAtRef.current = Date.now();
+            cancelReadyTick();
             playReloadSound(spectateTarget.activeWeaponId);
           }
           if (!prev.reloading && nextHud.reloading) {
             lastReloadAtRef.current = Date.now();
+            cancelReadyTick();
             playReloadSound(spectateTarget.activeWeaponId);
+          }
+          if (prev.reloading && !nextHud.reloading) {
+            cancelReadyTick();
           }
         }
       }
