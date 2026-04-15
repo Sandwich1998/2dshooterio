@@ -1964,7 +1964,8 @@ export default function Home() {
         ctx.restore();
       }
 
-      if (!isMobileUi) {
+      const showDesktopMinimap = !isMobileUi && width >= 1100 && height >= 700;
+      if (showDesktopMinimap) {
         const minimapSize = 160;
         const miniX = 24;
         const miniY = Math.max(24, height - minimapSize - 240);
