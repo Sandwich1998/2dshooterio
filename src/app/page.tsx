@@ -1209,7 +1209,6 @@ export default function Home() {
       mp9: "mp9.png",
       mac10: "mac10.png",
       nova: "nova.png",
-      xm1014: "xm1014.png",
       ak47: "ak47.png",
       m4a1: "m4a1.png",
       awp: "awp.png",
@@ -1220,7 +1219,6 @@ export default function Home() {
       "MP9": "mp9.png",
       "MAC-10": "mac10.png",
       "Nova": "nova.png",
-      "XM1014": "xm1014.png",
       "AK-47": "ak47.png",
       "M4A1": "m4a1.png",
       "AWP": "awp.png",
@@ -1301,11 +1299,14 @@ export default function Home() {
     if (key === "xm1014") {
       return (
         <svg viewBox="0 0 56 20" className={iconClass} aria-hidden="true">
-          <rect x="4" y="8" width="28" height="4" rx="2" fill="currentColor" />
-          <rect x="18" y="12" width="12" height="4" rx="1" fill="currentColor" />
-          <rect x="28" y="6" width="10" height="8" rx="2" fill="currentColor" />
-          <rect x="36" y="9" width="14" height="2" rx="1" fill="currentColor" />
-          <rect x="10" y="6" width="8" height="2" rx="1" fill="currentColor" />
+          <rect x="2" y="8" width="28" height="3" rx="1.5" fill="currentColor" />
+          <rect x="3" y="11" width="19" height="2" rx="1" fill="currentColor" />
+          <rect x="23" y="6" width="13" height="7" rx="2" fill="currentColor" />
+          <rect x="27" y="5" width="9" height="1.5" rx="0.75" fill="currentColor" />
+          <path d="M35 11 H42 L48 8.8 V10.8 L42 13 H35 Z" fill="currentColor" />
+          <path d="M34 13 L40 13 L46 17 H41 L37 15.5 L37 18 L34 18 Z" fill="currentColor" />
+          <rect x="49" y="8" width="3" height="6" rx="0.8" fill="currentColor" />
+          <rect x="6" y="6" width="3" height="2" rx="0.6" fill="currentColor" />
         </svg>
       );
     }
