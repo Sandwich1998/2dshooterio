@@ -1487,61 +1487,29 @@ export default function Home() {
       const inputDir = getInputDirection(inputRef.current);
       let predictedMe = me;
       if (authoritativeMe && authoritativeMe.alive) {
-        let predicted = predictedRef.current;
-        if (!predicted || predicted.id !== authoritativeMe.id) {
-          predicted = {
-            id: authoritativeMe.id,
-            x: authoritativeMe.x,
-            y: authoritativeMe.y,
-            serverX: authoritativeMe.x,
-            serverY: authoritativeMe.y,
-          };
-        }
-        const hadServerUpdate =
-          authoritativeMe.x !== predicted.serverX || authoritativeMe.y !== predicted.serverY;
-        if (hadServerUpdate) {
-          predicted.serverX = authoritativeMe.x;
-          predicted.serverY = authoritativeMe.y;
-        }
+        const sinceServerUpdate = latestState ? Math.max(0, now - latestState.time) / 1000 : 0;
+        const leadTime = Math.min(0.05, sinceServerUpdate + 1 / 60);
         const inputLen = Math.hypot(inputDir.x, inputDir.y);
         if (inputLen > 0) {
-          // The local player follows held keys immediately; server state only corrects
-          // genuinely bad divergence instead of dictating the feel frame-to-frame.
           const move = moveWithCollisionsClient(
-            predicted.x,
-            predicted.y,
-            inputDir.x * CLIENT_SPEED * dt,
-            inputDir.y * CLIENT_SPEED * dt,
+            authoritativeMe.x,
+            authoritativeMe.y,
+            inputDir.x * CLIENT_SPEED * leadTime,
+            inputDir.y * CLIENT_SPEED * leadTime,
             mapRef.current,
             wallsRef.current
           );
-          predicted.x = move.x;
-          predicted.y = move.y;
-          const movingDrift = Math.hypot(
-            predicted.x - authoritativeMe.x,
-            predicted.y - authoritativeMe.y
-          );
-          if (movingDrift > 220) {
-            predicted.x = authoritativeMe.x;
-            predicted.y = authoritativeMe.y;
-          }
-        } else if (hadServerUpdate) {
-          const settledDrift = Math.hypot(
-            predicted.x - authoritativeMe.x,
-            predicted.y - authoritativeMe.y
-          );
-          // Once movement stops, keep the locally stopped position unless the server is either
-          // already close to it or clearly far enough off that we need to resync.
-          if (settledDrift < 14 || settledDrift > 120) {
-            predicted.x = authoritativeMe.x;
-            predicted.y = authoritativeMe.y;
-          } else {
-            predicted.x = lerp(predicted.x, authoritativeMe.x, 0.35);
-            predicted.y = lerp(predicted.y, authoritativeMe.y, 0.35);
-          }
+          predictedMe = { ...authoritativeMe, x: move.x, y: move.y };
+        } else {
+          predictedMe = authoritativeMe;
         }
-        predictedRef.current = predicted;
-        predictedMe = { ...authoritativeMe, x: predicted.x, y: predicted.y };
+        predictedRef.current = {
+          id: authoritativeMe.id,
+          x: predictedMe.x,
+          y: predictedMe.y,
+          serverX: authoritativeMe.x,
+          serverY: authoritativeMe.y,
+        };
       } else if (predictedRef.current) {
         predictedRef.current = null;
       }
