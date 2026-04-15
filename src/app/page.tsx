@@ -1590,7 +1590,7 @@ export default function Home() {
         );
       }
 
-      const zoom = isMobileUi ? 0.82 : 1.15;
+      const zoom = isMobileUi ? 0.68 : 1.15;
       const worldToScreen = (x: number, y: number) => ({
         x: (x - camX) * zoom + width / 2,
         y: (y - camY) * zoom + height / 2,
@@ -1964,12 +1964,12 @@ export default function Home() {
         ctx.restore();
       }
 
-      const minimapSize = isMobileUi ? 52 : 160;
-      const miniX = isMobileUi ? 10 : 24;
-      const miniY = isMobileUi ? 10 : Math.max(24, height - minimapSize - 240);
-      ctx.fillStyle = isMobileUi ? "rgba(255, 255, 255, 0.72)" : "rgba(255, 255, 255, 0.85)";
+      const minimapSize = isMobileUi ? 28 : 160;
+      const miniX = isMobileUi ? 6 : 24;
+      const miniY = isMobileUi ? 6 : Math.max(24, height - minimapSize - 240);
+      ctx.fillStyle = isMobileUi ? "rgba(255, 255, 255, 0.58)" : "rgba(255, 255, 255, 0.85)";
       ctx.fillRect(miniX, miniY, minimapSize, minimapSize);
-      ctx.strokeStyle = isMobileUi ? "rgba(20, 24, 32, 0.14)" : "rgba(20, 24, 32, 0.2)";
+      ctx.strokeStyle = isMobileUi ? "rgba(20, 24, 32, 0.1)" : "rgba(20, 24, 32, 0.2)";
       ctx.strokeRect(miniX, miniY, minimapSize, minimapSize);
 
       const mapScaleX = minimapSize / state.map.width;
@@ -1977,10 +1977,23 @@ export default function Home() {
       const safeMiniX = miniX + state.safeZone.x * mapScaleX;
       const safeMiniY = miniY + state.safeZone.y * mapScaleY;
       const safeMiniR = state.safeZone.radius * mapScaleX;
-      ctx.strokeStyle = "rgba(79, 140, 255, 0.95)";
-      ctx.beginPath();
-      ctx.arc(safeMiniX, safeMiniY, safeMiniR, 0, Math.PI * 2);
-      ctx.stroke();
+      if (isMobileUi) {
+        const ringRadius = Math.min(safeMiniR, minimapSize * 0.42);
+        ctx.strokeStyle = "rgba(79, 140, 255, 0.42)";
+        ctx.lineWidth = 0.75;
+        ctx.beginPath();
+        ctx.arc(safeMiniX, safeMiniY, ringRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(79, 140, 255, 0.85)";
+        ctx.beginPath();
+        ctx.arc(safeMiniX, safeMiniY, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = "rgba(79, 140, 255, 0.95)";
+        ctx.beginPath();
+        ctx.arc(safeMiniX, safeMiniY, safeMiniR, 0, Math.PI * 2);
+        ctx.stroke();
+      }
 
       if (spectateTarget) {
         const weaponName = resolveWeaponName(spectateTarget.activeWeaponId);
