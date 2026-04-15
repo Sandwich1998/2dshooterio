@@ -54,8 +54,8 @@ Game server:
 
 ```bash
 SERVER_PORT=3001
-SERVER_TICK_RATE=20
-SNAPSHOT_RATE=20
+SERVER_TICK_RATE=30
+SNAPSHOT_RATE=30
 ```
 
 Notes:
@@ -81,8 +81,8 @@ npm run start:server
 
 Set these values on the server host:
 
-- `SERVER_TICK_RATE=20`
-- `SNAPSHOT_RATE=20`
+- `SERVER_TICK_RATE=30`
+- `SNAPSHOT_RATE=30`
 
 Use `/health` as the health check endpoint.
 

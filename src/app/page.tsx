@@ -107,7 +107,7 @@ type InputState = {
 };
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001";
-const INTERP_DELAY = 90;
+const INTERP_DELAY = 55;
 const CLIENT_SPEED = 260;
 const CLIENT_RADIUS = 14;
 const WEAPON_ICON_BASE = "/weapons/csgo";
@@ -1667,8 +1667,8 @@ export default function Home() {
                 const existing = renderPosRef.current.get(player.id);
                 return existing
                   ? {
-                      x: lerp(existing.x, targetPlayer.x, Math.min(1, dt * 12)),
-                      y: lerp(existing.y, targetPlayer.y, Math.min(1, dt * 12)),
+                      x: lerp(existing.x, targetPlayer.x, Math.min(1, dt * 18)),
+                      y: lerp(existing.y, targetPlayer.y, Math.min(1, dt * 18)),
                     }
                   : { x: targetPlayer.x, y: targetPlayer.y };
               })();

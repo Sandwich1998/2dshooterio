@@ -41,8 +41,8 @@ npm run start:server
 Environment variables:
 
 ```bash
-SERVER_TICK_RATE=20
-SNAPSHOT_RATE=20
+SERVER_TICK_RATE=30
+SNAPSHOT_RATE=30
 ```
 
 The server will use `SERVER_PORT` if set, otherwise it will fall back to the platform-provided `PORT`.

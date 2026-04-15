@@ -6,6 +6,7 @@
 - Set `NEXT_PUBLIC_WS_URL` to the public `wss://` URL of the game server.
 - Run the game server with a process manager (PM2/systemd) or managed host auto-restart.
 - Ensure the game server accepts the platform `PORT` env var when applicable.
+- Use higher realtime defaults for combat feel, e.g. `SERVER_TICK_RATE=30` and `SNAPSHOT_RATE=30`.
 - Add TLS termination (reverse proxy like nginx) for secure WebSocket (wss://).
 - Configure health check path: `/health` on the game server.
 
