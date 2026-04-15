@@ -123,6 +123,7 @@ const fillNoiseData = (data: Float32Array, intensity: number) => {
 };
 
 const hostLabel = (url: string) => url.replace(/^wss?:\/\//, "");
+const MOVEMENT_KEYS = new Set(["w", "a", "s", "d"]);
 
 const circleIntersectsRect = (
   cx: number,
@@ -194,6 +195,7 @@ export default function Home() {
   });
   const mouseRef = useRef({ x: 0, y: 0 });
   const aimSmoothRef = useRef({ x: 1, y: 0 });
+  const pressedKeysRef = useRef<Set<string>>(new Set());
 
   const [status, setStatus] = useState<"idle" | "connecting" | "ready">("idle");
   const [name, setName] = useState("Operator");
@@ -284,7 +286,6 @@ export default function Home() {
     y: number;
     serverX: number;
     serverY: number;
-    lastServerTime: number;
   } | null>(null);
 
   const connect = () => {
@@ -408,6 +409,13 @@ export default function Home() {
         ...inputRef.current,
       })
     );
+  };
+
+  const syncMovementInput = () => {
+    inputRef.current.up = pressedKeysRef.current.has("w");
+    inputRef.current.down = pressedKeysRef.current.has("s");
+    inputRef.current.left = pressedKeysRef.current.has("a");
+    inputRef.current.right = pressedKeysRef.current.has("d");
   };
 
   const playShotSound = () => {
@@ -732,6 +740,7 @@ export default function Home() {
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent, isDown: boolean) => {
+      const key = event.key.toLowerCase();
       if (event.key === "Tab") {
         event.preventDefault();
         setShowScoreboard(isDown);
@@ -743,19 +752,23 @@ export default function Home() {
           chatInputRef.current?.focus();
         }, 0);
       }
+      if (event.target instanceof HTMLInputElement) {
+        return;
+      }
       const before = { ...inputRef.current };
-      switch (event.key.toLowerCase()) {
+      if (MOVEMENT_KEYS.has(key)) {
+        if (isDown) {
+          pressedKeysRef.current.add(key);
+        } else {
+          pressedKeysRef.current.delete(key);
+        }
+        syncMovementInput();
+      }
+      switch (key) {
         case "w":
-          inputRef.current.up = isDown;
-          break;
         case "s":
-          inputRef.current.down = isDown;
-          break;
         case "a":
-          inputRef.current.left = isDown;
-          break;
         case "d":
-          inputRef.current.right = isDown;
           break;
         case "r":
           if (isDown) inputRef.current.reload = true;
@@ -798,6 +811,22 @@ export default function Home() {
       inputRef.current.shoot = false;
     };
 
+    const clearHeldInput = () => {
+      pressedKeysRef.current.clear();
+      inputRef.current.up = false;
+      inputRef.current.down = false;
+      inputRef.current.left = false;
+      inputRef.current.right = false;
+      inputRef.current.shoot = false;
+      sendInputNow();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        clearHeldInput();
+      }
+    };
+
     const preventZoomKeys = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && ["+", "=", "-", "0"].includes(event.key)) {
         event.preventDefault();
@@ -819,6 +848,8 @@ export default function Home() {
     window.addEventListener("mousedown", handleMouseDown);
     window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("wheel", preventZoomWheel, { passive: false });
+    window.addEventListener("blur", clearHeldInput);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.removeEventListener("keydown", keyDown);
@@ -828,6 +859,8 @@ export default function Home() {
       window.removeEventListener("mousedown", handleMouseDown);
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("wheel", preventZoomWheel);
+      window.removeEventListener("blur", clearHeldInput);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [perfMode]);
 
@@ -1228,22 +1261,15 @@ export default function Home() {
             y: authoritativeMe.y,
             serverX: authoritativeMe.x,
             serverY: authoritativeMe.y,
-            lastServerTime: state.time,
           };
         }
-        if (
-          authoritativeMe.x !== predicted.serverX ||
-          authoritativeMe.y !== predicted.serverY
-        ) {
+        const hadServerUpdate =
+          authoritativeMe.x !== predicted.serverX || authoritativeMe.y !== predicted.serverY;
+        if (hadServerUpdate) {
           predicted.serverX = authoritativeMe.x;
           predicted.serverY = authoritativeMe.y;
-          predicted.lastServerTime = state.time;
         }
         const inputLen = Math.hypot(inputDir.x, inputDir.y);
-        const serverDrift = Math.hypot(
-          predicted.x - authoritativeMe.x,
-          predicted.y - authoritativeMe.y
-        );
         if (inputLen > 0) {
           const move = moveWithCollisionsClient(
             predicted.x,
@@ -1259,17 +1285,21 @@ export default function Home() {
             predicted.x - authoritativeMe.x,
             predicted.y - authoritativeMe.y
           );
-          // Let local input own the feel while moving. Only snap if the client drifts far enough
-          // that the prediction is clearly wrong.
-          if (movingDrift > 120) {
+          if (movingDrift > 96) {
             predicted.x = authoritativeMe.x;
             predicted.y = authoritativeMe.y;
           }
-        } else if (serverDrift < 10) {
-          // After release, wait for the server to catch up and only then settle back onto the
-          // authoritative position. This avoids visible backward rewinds.
-          predicted.x = authoritativeMe.x;
-          predicted.y = authoritativeMe.y;
+        } else if (hadServerUpdate) {
+          const settledDrift = Math.hypot(
+            predicted.x - authoritativeMe.x,
+            predicted.y - authoritativeMe.y
+          );
+          // Once movement stops, keep the locally stopped position unless the server is either
+          // already close to it or clearly far enough off that we need to resync.
+          if (settledDrift < 14 || settledDrift > 72) {
+            predicted.x = authoritativeMe.x;
+            predicted.y = authoritativeMe.y;
+          }
         }
         predictedRef.current = predicted;
         predictedMe = { ...authoritativeMe, x: predicted.x, y: predicted.y };
