@@ -550,24 +550,6 @@ export default function Home() {
     }
   };
 
-  const playCaseSound = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const now = audio.currentTime;
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(520, now);
-    osc.frequency.exponentialRampToValueAtTime(980, now + 0.12);
-    osc.frequency.exponentialRampToValueAtTime(420, now + 0.3);
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-    osc.connect(gain);
-    gain.connect(audio.destination);
-    osc.start();
-    osc.stop(now + 0.36);
-  };
-
   const playCaseStopSound = () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -1933,50 +1915,21 @@ export default function Home() {
 
       if (me && me.lastLootAt && me.lastLootAt !== lastLootAtRef.current) {
         lastLootAtRef.current = me.lastLootAt;
-        const weaponPool = weaponsRef.current.filter((weapon) => weapon.id !== me.lastLootWeaponId);
         const finalWeaponObj =
           weaponsRef.current.find((weapon) => weapon.id === me.lastLootWeaponId) ?? null;
         const finalWeapon = finalWeaponObj?.name ?? me.lastLootWeaponId;
         const finalRarity = finalWeaponObj?.rarity ?? "common";
-        const items: string[] = [];
-        const shuffled = weaponPool
-          .slice()
-          .sort(() => Math.random() - 0.5)
-          .map((weapon) => weapon.name);
-        for (let i = 0; i < Math.min(8, shuffled.length); i += 1) {
-          items.push(shuffled[i]);
-        }
-        items.push(finalWeapon);
         const id = `${me.lastLootAt}-${me.lastLootWeaponId}`;
-        setLootRoll({ id, items, final: finalWeapon, rarity: finalRarity });
+        setLootRoll({ id, items: [finalWeapon], final: finalWeapon, rarity: finalRarity });
         setLootOffset(0);
-        setLootFinale(false);
-        playCaseSound();
-        window.requestAnimationFrame(() => {
-          const windowEl = rollWindowRef.current;
-          const finalEl = finalItemRef.current;
-          if (!windowEl || !finalEl) {
-            return;
-          }
-          const windowWidth = windowEl.getBoundingClientRect().width;
-          const finalRect = finalEl.getBoundingClientRect();
-          const windowRect = windowEl.getBoundingClientRect();
-          const finalCenter = finalRect.left - windowRect.left + finalRect.width / 2;
-          const offset = finalCenter - windowWidth / 2;
-          setLootOffset(offset);
-        });
-        window.setTimeout(() => {
-          playCaseStopSound();
-        }, 1200);
-        window.setTimeout(() => {
-          setLootFinale(true);
-          setLootBurst(Date.now());
-          playRarityStinger(finalRarity);
-        }, 1320);
+        setLootFinale(true);
+        setLootBurst(Date.now());
+        playCaseStopSound();
+        playRarityStinger(finalRarity);
         window.setTimeout(() => {
           setLootRoll((current) => (current?.id === id ? null : current));
           setLootFinale(false);
-        }, 1700);
+        }, 650);
       }
 
       if (state.match?.results?.id !== matchResultsRef.current?.id) {
