@@ -2645,7 +2645,7 @@ export default function Home() {
 
       {mobileControlsVisible && (
         <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex items-end justify-between px-[max(0.625rem,env(safe-area-inset-left))] pr-[max(0.625rem,env(safe-area-inset-right))]">
+          <div className="pointer-events-none absolute inset-x-0 bottom-[max(1.75rem,calc(env(safe-area-inset-bottom)+1.25rem))] flex items-end justify-between px-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]">
             <div className="pointer-events-auto flex items-end gap-2">
               <div
                 className={`mobile-stick-shell ${moveStick.active ? "mobile-stick-shell-active" : ""}`}
