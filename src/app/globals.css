@@ -292,6 +292,36 @@ body::after {
   text-transform: uppercase;
 }
 
+.mobile-status-bar {
+  display: flex;
+  max-width: min(92vw, 760px);
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.mobile-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(13, 18, 32, 0.1);
+  box-shadow: 0 10px 24px rgba(11, 14, 24, 0.1);
+  color: rgba(13, 18, 32, 0.74);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mobile-status-pill-strong {
+  color: #0b1220;
+  font-weight: 800;
+}
+
 @media (max-width: 768px) {
   .hud-card {
     gap: 4px;
@@ -305,6 +335,29 @@ body::after {
 
   .loot-roll {
     width: min(92vw, 420px);
+  }
+
+  .mobile-stick-shell {
+    width: 104px;
+    height: 104px;
+  }
+
+  .mobile-stick-ring {
+    inset: 10px;
+  }
+
+  .mobile-stick-thumb {
+    left: 31px;
+    top: 31px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .mobile-action-button {
+    min-width: 64px;
+    height: 48px;
+    border-radius: 16px;
+    font-size: 0.62rem;
   }
 }
 

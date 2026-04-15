@@ -281,6 +281,7 @@ export default function Home() {
   const [showScoreboard, setShowScoreboard] = useState(false);
   const [chatText, setChatText] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const chatInputRef = useRef<HTMLInputElement | null>(null);
   const [chatLog, setChatLog] = useState<
     Array<{ id: string; name: string; text: string; color: string }>
@@ -2194,6 +2195,9 @@ export default function Home() {
   const aimStick = aimStickRef.current;
   const mobileControlsVisible = isMobileUi && status === "ready";
   const showRotateHint = mobileControlsVisible && !isLandscape;
+  const mobilePlayerAlive = Boolean(
+    stateRef.current?.players.find((p) => p.id === myIdRef.current)?.alive
+  );
   const controlHints = isMobileUi
     ? ["Left stick to move", "Right stick to aim and fire", "Tap loot, reload, or swap"]
     : memoizedControls;
@@ -2204,14 +2208,20 @@ export default function Home() {
 
       <div className="pointer-events-none absolute left-0 top-0 flex h-full w-full flex-col justify-between">
         <div className="flex flex-col gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-6 md:pt-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="hud-panel ui-slide-in max-w-[min(100%,26rem)] rounded-2xl px-4 py-3 backdrop-blur md:px-5 md:py-4">
+          <div
+            className={`hud-panel ui-slide-in rounded-2xl backdrop-blur ${
+              isMobileUi
+                ? "max-w-[min(100%,12.75rem)] px-3 py-2"
+                : "max-w-[min(100%,26rem)] px-4 py-3 md:px-5 md:py-4"
+            }`}
+          >
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="hud-title text-xs uppercase tracking-[0.35em] text-black/60">
                   Dustline
                 </p>
                 <p className="text-base font-semibold text-black md:text-lg">
-                  Tactical Battle Royale
+                  {isMobileUi ? "Mobile Ops" : "Tactical Battle Royale"}
                 </p>
                 {!isMobileUi && (
                   <p className="mt-1 text-[10px] uppercase tracking-[0.35em] text-black/50">
@@ -2223,21 +2233,38 @@ export default function Home() {
                 <span className="ui-chip">
                   Ping {status === "ready" ? `${pingMs} ms` : "--"}
                 </span>
-                <span className="ui-chip">Server {hostLabel(WS_URL)}</span>
+                {!isMobileUi && <span className="ui-chip">Server {hostLabel(WS_URL)}</span>}
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-black/50">
-              <span>Performance</span>
-              <button
-                className="ui-button pointer-events-auto px-3 py-1 text-[10px]"
-                onClick={() => setPerfMode((current) => !current)}
-              >
-                {perfMode ? "On" : "Off"}
-              </button>
-              {isMobileUi && <span className="ui-chip">Mobile HUD</span>}
-            </div>
+            {!isMobileUi ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-black/50">
+                <span>Performance</span>
+                <button
+                  className="ui-button pointer-events-auto px-3 py-1 text-[10px]"
+                  onClick={() => setPerfMode((current) => !current)}
+                >
+                  {perfMode ? "On" : "Off"}
+                </button>
+              </div>
+            ) : (
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  className="ui-button pointer-events-auto px-3 py-1 text-[10px]"
+                  onClick={() => setPerfMode((current) => !current)}
+                >
+                  Perf {perfMode ? "On" : "Off"}
+                </button>
+                <button
+                  className="ui-button pointer-events-auto px-3 py-1 text-[10px]"
+                  onClick={() => setMobileChatOpen((current) => !current)}
+                >
+                  Chat
+                </button>
+              </div>
+            )}
           </div>
-          <div className="flex w-full max-w-72 flex-col gap-2 self-end text-right">
+          {!isMobileUi && (
+            <div className="flex w-full max-w-72 flex-col gap-2 self-end text-right">
             {killFeed.map((event) => (
               <div
                 key={event.id}
@@ -2252,10 +2279,15 @@ export default function Home() {
                 </span>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-col gap-3 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6 md:pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <div
+          className={`flex flex-col gap-3 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6 md:pb-6 lg:flex-row lg:items-end lg:justify-between ${
+            isMobileUi ? "opacity-0" : ""
+          }`}
+        >
           <div className="hud-card ui-slide-in max-w-[min(100%,18rem)] text-black/80">
             <p className="hud-label">Loadout</p>
             <div className="mt-1 flex items-center gap-2">
@@ -2301,7 +2333,9 @@ export default function Home() {
       <div
         className={`pointer-events-none absolute w-[min(22rem,calc(100%-1.5rem))] md:left-6 md:w-[22rem] ${
           isMobileUi
-            ? "left-3 top-[calc(env(safe-area-inset-top)+5.5rem)]"
+            ? mobileChatOpen
+              ? "left-3 top-[calc(env(safe-area-inset-top)+4.8rem)]"
+              : "hidden"
             : "left-4 top-48"
         }`}
       >
@@ -2577,6 +2611,21 @@ export default function Home() {
 
       {mobileControlsVisible && (
         <>
+          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+9.25rem)] flex justify-center px-3">
+            <div className="mobile-status-bar">
+              <span className="mobile-status-pill mobile-status-pill-strong">
+                {hud.weapon}
+              </span>
+              <span className="mobile-status-pill">
+                {hud.ammo}/{hud.reserve}
+              </span>
+              <span className="mobile-status-pill">HP {hud.hp}</span>
+              <span className="mobile-status-pill">AR {hud.armor}</span>
+              <span className="mobile-status-pill">K {hud.kills}</span>
+              <span className="mobile-status-pill">{hud.aliveCount} alive</span>
+            </div>
+          </div>
+
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between px-[max(0.75rem,env(safe-area-inset-left))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pr-[max(0.75rem,env(safe-area-inset-right))]">
             <div className="pointer-events-auto flex items-end gap-3">
               <div
@@ -2646,7 +2695,7 @@ export default function Home() {
                   }}
                 />
               </div>
-              <div className="mobile-hint-chip">{touchControlsReady ? "Move" : "Hold"}</div>
+              {!showRotateHint && <div className="mobile-hint-chip">{touchControlsReady ? "Move" : "Hold"}</div>}
             </div>
 
             <div className="pointer-events-auto flex items-end gap-3">
@@ -2761,15 +2810,17 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+8.75rem)] flex justify-center px-4">
-            <div className="mobile-hint-row">
-              {controlHints.map((item) => (
-                <span key={item} className="mobile-hint-chip">
-                  {item}
-                </span>
-              ))}
+          {!touchControlsReady && mobilePlayerAlive && !showRotateHint && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+16.5rem)] flex justify-center px-4">
+              <div className="mobile-hint-row">
+                {controlHints.map((item) => (
+                  <span key={item} className="mobile-hint-chip">
+                    {item}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
 
