@@ -1815,7 +1815,7 @@ export default function Home() {
 
       const minimapSize = 160;
       const miniX = 24;
-      const miniY = Math.max(24, height - minimapSize - 140);
+      const miniY = Math.max(24, height - minimapSize - 240);
       ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
       ctx.fillRect(miniX, miniY, minimapSize, minimapSize);
       ctx.strokeStyle = "rgba(20, 24, 32, 0.2)";
