@@ -116,7 +116,7 @@ type StickState = {
 };
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001";
-const INTERP_DELAY = 65;
+const INTERP_DELAY = 35;
 const CLIENT_SPEED = 260;
 const CLIENT_RADIUS = 14;
 const WEAPON_ICON_BASE = "/weapons/csgo";
@@ -1411,7 +1411,7 @@ export default function Home() {
       const height = viewport?.height ?? window.innerHeight;
       const dpr = perfMode
         ? Math.min(1.25, window.devicePixelRatio || 1)
-        : Math.min(2, window.devicePixelRatio || 1);
+        : Math.min(1.5, window.devicePixelRatio || 1);
       dprRef.current = dpr;
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
@@ -1566,7 +1566,7 @@ export default function Home() {
         camRef.current.x = targetX;
         camRef.current.y = targetY;
       } else {
-        const camSmooth = 1 - Math.exp(-dt * 10);
+        const camSmooth = 1 - Math.exp(-dt * 16);
         camRef.current.x = lerp(camRef.current.x, targetX, camSmooth);
         camRef.current.y = lerp(camRef.current.y, targetY, camSmooth);
       }
@@ -1601,8 +1601,8 @@ export default function Home() {
       const mouse = mouseRef.current;
       const targetAimX = mouse.x - width / 2;
       const targetAimY = mouse.y - height / 2;
-      aimSmoothRef.current.x = lerp(aimSmoothRef.current.x, targetAimX, 0.25);
-      aimSmoothRef.current.y = lerp(aimSmoothRef.current.y, targetAimY, 0.25);
+      aimSmoothRef.current.x = lerp(aimSmoothRef.current.x, targetAimX, 0.5);
+      aimSmoothRef.current.y = lerp(aimSmoothRef.current.y, targetAimY, 0.5);
       inputRef.current.aimX = aimSmoothRef.current.x;
       inputRef.current.aimY = aimSmoothRef.current.y;
 
