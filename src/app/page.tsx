@@ -199,7 +199,10 @@ const getViewportCenter = (canvas: HTMLCanvasElement | null) => {
     const rect = canvas.getBoundingClientRect();
     return { x: rect.width * 0.5, y: rect.height * 0.5 };
   }
-  return { x: window.innerWidth * 0.5, y: window.innerHeight * 0.5 };
+  const viewport = window.visualViewport;
+  const width = viewport?.width ?? window.innerWidth;
+  const height = viewport?.height ?? window.innerHeight;
+  return { x: width * 0.5, y: height * 0.5 };
 };
 
 export default function Home() {
@@ -920,12 +923,15 @@ export default function Home() {
 
   useEffect(() => {
     const updateTouchProfile = () => {
+      const viewport = window.visualViewport;
+      const width = viewport?.width ?? window.innerWidth;
+      const height = viewport?.height ?? window.innerHeight;
       const coarse = window.matchMedia("(pointer: coarse)").matches;
-      const narrow = window.innerWidth <= 1024;
-      const shortSide = Math.min(window.innerWidth, window.innerHeight);
+      const narrow = width <= 1024;
+      const shortSide = Math.min(width, height);
       const mobile = coarse && (narrow || shortSide <= 900);
       setIsMobileUi(mobile);
-      setIsLandscape(window.innerWidth > window.innerHeight);
+      setIsLandscape(width > height);
       if (mobile && shortSide <= 900 && !mobilePerfAutoRef.current) {
         mobilePerfAutoRef.current = true;
         setPerfMode(true);
@@ -935,10 +941,12 @@ export default function Home() {
     updateTouchProfile();
     window.addEventListener("resize", updateTouchProfile);
     window.addEventListener("orientationchange", updateTouchProfile);
+    window.visualViewport?.addEventListener("resize", updateTouchProfile);
 
     return () => {
       window.removeEventListener("resize", updateTouchProfile);
       window.removeEventListener("orientationchange", updateTouchProfile);
+      window.visualViewport?.removeEventListener("resize", updateTouchProfile);
     };
   }, []);
 
@@ -1398,18 +1406,22 @@ export default function Home() {
     if (!ctx) return;
 
     const resize = () => {
+      const viewport = window.visualViewport;
+      const width = viewport?.width ?? window.innerWidth;
+      const height = viewport?.height ?? window.innerHeight;
       const dpr = perfMode
         ? Math.min(1.25, window.devicePixelRatio || 1)
         : Math.min(2, window.devicePixelRatio || 1);
       dprRef.current = dpr;
-      canvas.width = Math.floor(window.innerWidth * dpr);
-      canvas.height = Math.floor(window.innerHeight * dpr);
-      canvas.style.width = `${window.innerWidth}px`;
-      canvas.style.height = `${window.innerHeight}px`;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
     window.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("resize", resize);
 
     let rafId = 0;
     const render = () => {
@@ -1578,7 +1590,7 @@ export default function Home() {
         );
       }
 
-      const zoom = isMobileUi ? 0.98 : 1.15;
+      const zoom = isMobileUi ? 0.82 : 1.15;
       const worldToScreen = (x: number, y: number) => ({
         x: (x - camX) * zoom + width / 2,
         y: (y - camY) * zoom + height / 2,
@@ -1952,12 +1964,12 @@ export default function Home() {
         ctx.restore();
       }
 
-      const minimapSize = isMobileUi ? 72 : 160;
-      const miniX = isMobileUi ? 12 : 24;
-      const miniY = isMobileUi ? 12 : Math.max(24, height - minimapSize - 240);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      const minimapSize = isMobileUi ? 52 : 160;
+      const miniX = isMobileUi ? 10 : 24;
+      const miniY = isMobileUi ? 10 : Math.max(24, height - minimapSize - 240);
+      ctx.fillStyle = isMobileUi ? "rgba(255, 255, 255, 0.72)" : "rgba(255, 255, 255, 0.85)";
       ctx.fillRect(miniX, miniY, minimapSize, minimapSize);
-      ctx.strokeStyle = "rgba(20, 24, 32, 0.2)";
+      ctx.strokeStyle = isMobileUi ? "rgba(20, 24, 32, 0.14)" : "rgba(20, 24, 32, 0.2)";
       ctx.strokeRect(miniX, miniY, minimapSize, minimapSize);
 
       const mapScaleX = minimapSize / state.map.width;
@@ -2164,6 +2176,7 @@ export default function Home() {
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
     };
   }, []);
 
@@ -2619,7 +2632,7 @@ export default function Home() {
 
       {mobileControlsVisible && (
         <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between px-[max(0.5rem,env(safe-area-inset-left))] pb-[max(0.45rem,env(safe-area-inset-bottom))] pr-[max(0.5rem,env(safe-area-inset-right))]">
+          <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] flex items-end justify-between px-[max(0.625rem,env(safe-area-inset-left))] pr-[max(0.625rem,env(safe-area-inset-right))]">
             <div className="pointer-events-auto flex items-end gap-2">
               <div
                 className={`mobile-stick-shell ${moveStick.active ? "mobile-stick-shell-active" : ""}`}
@@ -2645,10 +2658,10 @@ export default function Home() {
                   const normalized = normalizeStick(
                     event.clientX - stick.startX,
                     event.clientY - stick.startY,
-                    42
+                    40
                   );
-                  stick.x = normalized.x / 42;
-                  stick.y = normalized.y / 42;
+                  stick.x = normalized.x / 40;
+                  stick.y = normalized.y / 40;
                   syncMoveStickInput();
                 }}
                 onPointerUp={(event) => {
@@ -2684,7 +2697,7 @@ export default function Home() {
                 <div
                   className="mobile-stick-thumb"
                   style={{
-                    transform: `translate(${moveStick.x * 42}px, ${moveStick.y * 42}px)`,
+                    transform: `translate(${moveStick.x * 40}px, ${moveStick.y * 40}px)`,
                   }}
                 />
               </div>
@@ -2755,10 +2768,10 @@ export default function Home() {
                   const normalized = normalizeStick(
                     event.clientX - stick.startX,
                     event.clientY - stick.startY,
-                    42
+                    40
                   );
-                  stick.x = normalized.x / 42;
-                  stick.y = normalized.y / 42;
+                  stick.x = normalized.x / 40;
+                  stick.y = normalized.y / 40;
                   inputRef.current.shoot = normalized.distance > 0.16;
                   updateAimFromStick(stick.x, stick.y);
                 }}
@@ -2795,7 +2808,7 @@ export default function Home() {
                 <div
                   className="mobile-stick-thumb mobile-stick-thumb-aim"
                   style={{
-                    transform: `translate(${aimStick.x * 42}px, ${aimStick.y * 42}px)`,
+                    transform: `translate(${aimStick.x * 40}px, ${aimStick.y * 40}px)`,
                   }}
                 />
               </div>

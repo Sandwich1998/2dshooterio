@@ -28,6 +28,8 @@ html,
 body {
   width: 100%;
   height: 100%;
+  min-width: 100dvw;
+  min-height: 100dvh;
   overscroll-behavior: none;
   background: #eef1f7;
 }
@@ -35,6 +37,8 @@ body {
 body {
   margin: 0;
   overflow: hidden;
+  min-width: 100dvw;
+  min-height: 100dvh;
   background:
     radial-gradient(circle at 15% 10%, rgba(108, 75, 255, 0.12), transparent 35%),
     radial-gradient(circle at 85% 0%, rgba(79, 140, 255, 0.12), transparent 40%),
@@ -212,8 +216,8 @@ body::after {
 
 .mobile-stick-shell {
   position: relative;
-  width: 116px;
-  height: 116px;
+  width: 104px;
+  height: 104px;
   border-radius: 999px;
   border: 1px solid rgba(13, 18, 32, 0.16);
   background: rgba(255, 255, 255, 0.18);
@@ -233,17 +237,17 @@ body::after {
 
 .mobile-stick-ring {
   position: absolute;
-  inset: 12px;
+  inset: 10px;
   border-radius: 999px;
   border: 1px dashed rgba(13, 18, 32, 0.18);
 }
 
 .mobile-stick-thumb {
   position: absolute;
-  left: 35px;
-  top: 35px;
-  width: 46px;
-  height: 46px;
+  left: 31px;
+  top: 31px;
+  width: 42px;
+  height: 42px;
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(223, 230, 242, 0.88));
   box-shadow: 0 12px 24px rgba(11, 14, 24, 0.22);
@@ -255,15 +259,15 @@ body::after {
 }
 
 .mobile-action-button {
-  min-width: 72px;
-  height: 52px;
+  min-width: 60px;
+  height: 44px;
   border: 1px solid rgba(13, 18, 32, 0.16);
-  border-radius: 18px;
+  border-radius: 15px;
   background: rgba(255, 255, 255, 0.82);
   color: #0b1220;
-  font-size: 0.68rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   box-shadow: 0 12px 28px rgba(11, 14, 24, 0.14);
   backdrop-filter: blur(14px);
@@ -340,26 +344,26 @@ body::after {
   }
 
   .mobile-stick-shell {
-    width: 104px;
-    height: 104px;
+    width: 96px;
+    height: 96px;
   }
 
   .mobile-stick-ring {
-    inset: 10px;
+    inset: 9px;
   }
 
   .mobile-stick-thumb {
-    left: 31px;
-    top: 31px;
-    width: 42px;
-    height: 42px;
+    left: 28px;
+    top: 28px;
+    width: 40px;
+    height: 40px;
   }
 
   .mobile-action-button {
-    min-width: 64px;
-    height: 48px;
-    border-radius: 16px;
-    font-size: 0.62rem;
+    min-width: 56px;
+    height: 42px;
+    border-radius: 14px;
+    font-size: 0.55rem;
   }
 }
 
