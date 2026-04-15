@@ -1590,7 +1590,7 @@ export default function Home() {
         );
       }
 
-      const zoom = isMobileUi ? 0.68 : 1.15;
+      const zoom = isMobileUi ? 0.52 : 1.15;
       const worldToScreen = (x: number, y: number) => ({
         x: (x - camX) * zoom + width / 2,
         y: (y - camY) * zoom + height / 2,
@@ -1964,10 +1964,10 @@ export default function Home() {
         ctx.restore();
       }
 
-      const minimapSize = isMobileUi ? 28 : 160;
-      const miniX = isMobileUi ? 6 : 24;
-      const miniY = isMobileUi ? 6 : Math.max(24, height - minimapSize - 240);
-      ctx.fillStyle = isMobileUi ? "rgba(255, 255, 255, 0.58)" : "rgba(255, 255, 255, 0.85)";
+      const minimapSize = isMobileUi ? 18 : 160;
+      const miniX = isMobileUi ? 5 : 24;
+      const miniY = isMobileUi ? 5 : Math.max(24, height - minimapSize - 240);
+      ctx.fillStyle = isMobileUi ? "rgba(255, 255, 255, 0.45)" : "rgba(255, 255, 255, 0.85)";
       ctx.fillRect(miniX, miniY, minimapSize, minimapSize);
       ctx.strokeStyle = isMobileUi ? "rgba(20, 24, 32, 0.1)" : "rgba(20, 24, 32, 0.2)";
       ctx.strokeRect(miniX, miniY, minimapSize, minimapSize);
@@ -1978,15 +1978,15 @@ export default function Home() {
       const safeMiniY = miniY + state.safeZone.y * mapScaleY;
       const safeMiniR = state.safeZone.radius * mapScaleX;
       if (isMobileUi) {
-        const ringRadius = Math.min(safeMiniR, minimapSize * 0.42);
-        ctx.strokeStyle = "rgba(79, 140, 255, 0.42)";
-        ctx.lineWidth = 0.75;
+        const ringRadius = Math.min(safeMiniR, minimapSize * 0.38);
+        ctx.strokeStyle = "rgba(79, 140, 255, 0.32)";
+        ctx.lineWidth = 0.5;
         ctx.beginPath();
         ctx.arc(safeMiniX, safeMiniY, ringRadius, 0, Math.PI * 2);
         ctx.stroke();
         ctx.fillStyle = "rgba(79, 140, 255, 0.85)";
         ctx.beginPath();
-        ctx.arc(safeMiniX, safeMiniY, 1.3, 0, Math.PI * 2);
+        ctx.arc(safeMiniX, safeMiniY, 0.9, 0, Math.PI * 2);
         ctx.fill();
       } else {
         ctx.strokeStyle = "rgba(79, 140, 255, 0.95)";
@@ -2645,7 +2645,7 @@ export default function Home() {
 
       {mobileControlsVisible && (
         <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-[max(1.75rem,calc(env(safe-area-inset-bottom)+1.25rem))] flex items-end justify-between px-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]">
+          <div className="pointer-events-none absolute inset-x-0 bottom-[max(3rem,calc(env(safe-area-inset-bottom)+2.25rem))] flex items-end justify-between px-[max(0.85rem,env(safe-area-inset-left))] pr-[max(0.85rem,env(safe-area-inset-right))]">
             <div className="pointer-events-auto flex items-end gap-2">
               <div
                 className={`mobile-stick-shell ${moveStick.active ? "mobile-stick-shell-active" : ""}`}
