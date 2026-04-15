@@ -1521,9 +1521,12 @@ export default function Home() {
             predicted.x - authoritativeMe.x,
             predicted.y - authoritativeMe.y
           );
-          if (movingDrift > 96) {
+          if (movingDrift > 180) {
             predicted.x = authoritativeMe.x;
             predicted.y = authoritativeMe.y;
+          } else if (hadServerUpdate && movingDrift > 10) {
+            predicted.x = lerp(predicted.x, authoritativeMe.x, 0.18);
+            predicted.y = lerp(predicted.y, authoritativeMe.y, 0.18);
           }
         } else if (hadServerUpdate) {
           const settledDrift = Math.hypot(
@@ -1532,9 +1535,12 @@ export default function Home() {
           );
           // Once movement stops, keep the locally stopped position unless the server is either
           // already close to it or clearly far enough off that we need to resync.
-          if (settledDrift < 14 || settledDrift > 72) {
+          if (settledDrift < 14 || settledDrift > 120) {
             predicted.x = authoritativeMe.x;
             predicted.y = authoritativeMe.y;
+          } else {
+            predicted.x = lerp(predicted.x, authoritativeMe.x, 0.35);
+            predicted.y = lerp(predicted.y, authoritativeMe.y, 0.35);
           }
         }
         predictedRef.current = predicted;
