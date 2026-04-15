@@ -1240,6 +1240,10 @@ export default function Home() {
           predicted.lastServerTime = state.time;
         }
         const inputLen = Math.hypot(inputDir.x, inputDir.y);
+        const serverDrift = Math.hypot(
+          predicted.x - authoritativeMe.x,
+          predicted.y - authoritativeMe.y
+        );
         if (inputLen > 0) {
           const move = moveWithCollisionsClient(
             predicted.x,
@@ -1251,13 +1255,19 @@ export default function Home() {
           );
           predicted.x = move.x;
           predicted.y = move.y;
-        }
-        const serverDrift = Math.hypot(
-          predicted.x - authoritativeMe.x,
-          predicted.y - authoritativeMe.y
-        );
-        // Let local input own the feel; only reconcile when the prediction meaningfully diverges.
-        if (serverDrift > 72) {
+          const movingDrift = Math.hypot(
+            predicted.x - authoritativeMe.x,
+            predicted.y - authoritativeMe.y
+          );
+          // Let local input own the feel while moving. Only snap if the client drifts far enough
+          // that the prediction is clearly wrong.
+          if (movingDrift > 120) {
+            predicted.x = authoritativeMe.x;
+            predicted.y = authoritativeMe.y;
+          }
+        } else if (serverDrift < 10) {
+          // After release, wait for the server to catch up and only then settle back onto the
+          // authoritative position. This avoids visible backward rewinds.
           predicted.x = authoritativeMe.x;
           predicted.y = authoritativeMe.y;
         }
