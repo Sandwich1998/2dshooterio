@@ -1578,7 +1578,7 @@ export default function Home() {
         );
       }
 
-      const zoom = 1.15;
+      const zoom = isMobileUi ? 0.98 : 1.15;
       const worldToScreen = (x: number, y: number) => ({
         x: (x - camX) * zoom + width / 2,
         y: (y - camY) * zoom + height / 2,
@@ -1952,9 +1952,9 @@ export default function Home() {
         ctx.restore();
       }
 
-      const minimapSize = 160;
-      const miniX = 24;
-      const miniY = Math.max(24, height - minimapSize - 240);
+      const minimapSize = isMobileUi ? 72 : 160;
+      const miniX = isMobileUi ? 12 : 24;
+      const miniY = isMobileUi ? 12 : Math.max(24, height - minimapSize - 240);
       ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
       ctx.fillRect(miniX, miniY, minimapSize, minimapSize);
       ctx.strokeStyle = "rgba(20, 24, 32, 0.2)";
@@ -2195,19 +2195,17 @@ export default function Home() {
   const aimStick = aimStickRef.current;
   const mobileControlsVisible = isMobileUi && status === "ready";
   const showRotateHint = mobileControlsVisible && !isLandscape;
-  const mobilePlayerAlive = Boolean(
-    stateRef.current?.players.find((p) => p.id === myIdRef.current)?.alive
-  );
   const controlHints = isMobileUi
     ? ["Left stick to move", "Right stick to aim and fire", "Tap loot, reload, or swap"]
     : memoizedControls;
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="fixed inset-0 h-screen w-screen overflow-hidden">
       <canvas ref={canvasRef} className="h-screen w-screen touch-none" />
 
       <div className="pointer-events-none absolute left-0 top-0 flex h-full w-full flex-col justify-between">
         <div className="flex flex-col gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-6 md:pt-6 lg:flex-row lg:items-start lg:justify-between">
+          {!isMobileUi && (
           <div
             className={`hud-panel ui-slide-in rounded-2xl backdrop-blur ${
               isMobileUi
@@ -2263,6 +2261,7 @@ export default function Home() {
               </div>
             )}
           </div>
+          )}
           {!isMobileUi && (
             <div className="flex w-full max-w-72 flex-col gap-2 self-end text-right">
             {killFeed.map((event) => (
@@ -2283,11 +2282,8 @@ export default function Home() {
           )}
         </div>
 
-        <div
-          className={`flex flex-col gap-3 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6 md:pb-6 lg:flex-row lg:items-end lg:justify-between ${
-            isMobileUi ? "opacity-0" : ""
-          }`}
-        >
+        {!isMobileUi && (
+        <div className="flex flex-col gap-3 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6 md:pb-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="hud-card ui-slide-in max-w-[min(100%,18rem)] text-black/80">
             <p className="hud-label">Loadout</p>
             <div className="mt-1 flex items-center gap-2">
@@ -2328,6 +2324,7 @@ export default function Home() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       <div
@@ -2602,32 +2599,28 @@ export default function Home() {
       )}
 
       {showRotateHint && (
-        <div className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)+6.5rem)] flex justify-center px-4">
+        <div className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)+1rem)] flex justify-center px-4">
           <div className="ui-panel-soft ui-slide-in rounded-[24px] px-5 py-3 text-center text-sm text-black shadow-xl">
             Rotate your phone to landscape for the smoothest controls.
           </div>
         </div>
       )}
 
+      {mobileControlsVisible && !mobileChatOpen && (
+        <div className="pointer-events-none absolute right-[max(0.5rem,env(safe-area-inset-right))] top-[max(0.5rem,env(safe-area-inset-top))]">
+          <button
+            className="ui-button pointer-events-auto px-3 py-1 text-[10px]"
+            onClick={() => setMobileChatOpen(true)}
+          >
+            Chat
+          </button>
+        </div>
+      )}
+
       {mobileControlsVisible && (
         <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+9.25rem)] flex justify-center px-3">
-            <div className="mobile-status-bar">
-              <span className="mobile-status-pill mobile-status-pill-strong">
-                {hud.weapon}
-              </span>
-              <span className="mobile-status-pill">
-                {hud.ammo}/{hud.reserve}
-              </span>
-              <span className="mobile-status-pill">HP {hud.hp}</span>
-              <span className="mobile-status-pill">AR {hud.armor}</span>
-              <span className="mobile-status-pill">K {hud.kills}</span>
-              <span className="mobile-status-pill">{hud.aliveCount} alive</span>
-            </div>
-          </div>
-
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between px-[max(0.75rem,env(safe-area-inset-left))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pr-[max(0.75rem,env(safe-area-inset-right))]">
-            <div className="pointer-events-auto flex items-end gap-3">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between px-[max(0.5rem,env(safe-area-inset-left))] pb-[max(0.45rem,env(safe-area-inset-bottom))] pr-[max(0.5rem,env(safe-area-inset-right))]">
+            <div className="pointer-events-auto flex items-end gap-2">
               <div
                 className={`mobile-stick-shell ${moveStick.active ? "mobile-stick-shell-active" : ""}`}
                 onPointerDown={(event) => {
@@ -2652,10 +2645,10 @@ export default function Home() {
                   const normalized = normalizeStick(
                     event.clientX - stick.startX,
                     event.clientY - stick.startY,
-                    46
+                    42
                   );
-                  stick.x = normalized.x / 46;
-                  stick.y = normalized.y / 46;
+                  stick.x = normalized.x / 42;
+                  stick.y = normalized.y / 42;
                   syncMoveStickInput();
                 }}
                 onPointerUp={(event) => {
@@ -2691,15 +2684,14 @@ export default function Home() {
                 <div
                   className="mobile-stick-thumb"
                   style={{
-                    transform: `translate(${moveStick.x * 46}px, ${moveStick.y * 46}px)`,
+                    transform: `translate(${moveStick.x * 42}px, ${moveStick.y * 42}px)`,
                   }}
                 />
               </div>
-              {!showRotateHint && <div className="mobile-hint-chip">{touchControlsReady ? "Move" : "Hold"}</div>}
             </div>
 
-            <div className="pointer-events-auto flex items-end gap-3">
-              <div className="flex flex-col gap-2">
+            <div className="pointer-events-auto flex items-end gap-2">
+              <div className="flex flex-col gap-1.5">
                 <button
                   className="mobile-action-button"
                   onPointerDown={(event) => {
@@ -2719,7 +2711,7 @@ export default function Home() {
                   Reload
                 </button>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 <button
                   className="mobile-action-button"
                   onPointerDown={(event) => {
@@ -2763,10 +2755,10 @@ export default function Home() {
                   const normalized = normalizeStick(
                     event.clientX - stick.startX,
                     event.clientY - stick.startY,
-                    46
+                    42
                   );
-                  stick.x = normalized.x / 46;
-                  stick.y = normalized.y / 46;
+                  stick.x = normalized.x / 42;
+                  stick.y = normalized.y / 42;
                   inputRef.current.shoot = normalized.distance > 0.16;
                   updateAimFromStick(stick.x, stick.y);
                 }}
@@ -2803,22 +2795,21 @@ export default function Home() {
                 <div
                   className="mobile-stick-thumb mobile-stick-thumb-aim"
                   style={{
-                    transform: `translate(${aimStick.x * 46}px, ${aimStick.y * 46}px)`,
+                    transform: `translate(${aimStick.x * 42}px, ${aimStick.y * 42}px)`,
                   }}
                 />
               </div>
             </div>
           </div>
 
-          {!touchControlsReady && mobilePlayerAlive && !showRotateHint && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+16.5rem)] flex justify-center px-4">
-              <div className="mobile-hint-row">
-                {controlHints.map((item) => (
-                  <span key={item} className="mobile-hint-chip">
-                    {item}
-                  </span>
-                ))}
-              </div>
+          {mobileChatOpen && (
+            <div className="pointer-events-none absolute right-[max(0.5rem,env(safe-area-inset-right))] top-[max(0.5rem,env(safe-area-inset-top))]">
+              <button
+                className="ui-button pointer-events-auto px-3 py-1 text-[10px]"
+                onClick={() => setMobileChatOpen(false)}
+              >
+                Close Chat
+              </button>
             </div>
           )}
         </>

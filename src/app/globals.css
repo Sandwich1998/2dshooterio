@@ -26,8 +26,10 @@
 
 html,
 body {
+  width: 100%;
   height: 100%;
   overscroll-behavior: none;
+  background: #eef1f7;
 }
 
 body {
