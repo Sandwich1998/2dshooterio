@@ -2148,20 +2148,33 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="pointer-events-none absolute left-4 top-36 w-[min(20rem,calc(100%-2rem))] md:left-6 md:top-40 md:w-80">
-        <div className="ui-panel-soft ui-slide-in rounded-2xl px-4 py-3 text-black/80 drop-shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
-          <div className="max-h-40 space-y-1 overflow-hidden text-sm">
+      <div className="pointer-events-none absolute bottom-4 left-4 w-[min(22rem,calc(100%-2rem))] md:bottom-6 md:left-6 md:w-[22rem]">
+        <div className="chat-panel ui-slide-in rounded-[24px] px-4 py-3 text-black shadow-[0_18px_42px_rgba(11,14,24,0.14)]">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="chat-panel-label">Squad Comms</p>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-black/50">
+                Match chat
+              </p>
+            </div>
+            {!chatOpen && (
+              <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-700/85">
+                Press Enter
+              </p>
+            )}
+          </div>
+          <div className="max-h-44 space-y-1.5 overflow-hidden text-sm">
             {chatLog.slice(-6).map((msg) => (
               <p key={msg.id}>
                 <span className="font-semibold" style={{ color: msg.color }}>
                   {msg.name}:
                 </span>{" "}
-                <span className="text-black/75">{msg.text}</span>
+                <span className="text-black">{msg.text}</span>
               </p>
             ))}
           </div>
           {chatOpen && (
-            <div className="pointer-events-auto mt-2">
+            <div className="pointer-events-auto mt-3">
               <input
                 ref={chatInputRef}
                 value={chatText}
@@ -2173,15 +2186,10 @@ export default function Home() {
                     setChatOpen(false);
                   }
                 }}
-                className="w-full border-b border-green-500/60 bg-transparent px-1 py-1 text-sm text-black placeholder:text-green-500/70 focus:border-green-500 focus:outline-none"
+                className="w-full rounded-2xl border border-emerald-600/30 bg-white/72 px-3 py-2 text-sm text-black placeholder:text-black/40 focus:border-emerald-600/60 focus:outline-none"
                 placeholder="Type message…"
               />
             </div>
-          )}
-          {!chatOpen && (
-            <p className="mt-2 text-[10px] uppercase tracking-[0.25em] text-green-500/80">
-              Press Enter to chat
-            </p>
           )}
         </div>
       </div>

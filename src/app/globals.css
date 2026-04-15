@@ -141,6 +141,35 @@ body::after {
   backdrop-filter: blur(12px);
 }
 
+.chat-panel {
+  background: rgba(247, 250, 252, 0.4);
+  border: 1px solid rgba(13, 18, 32, 0.12);
+  backdrop-filter: blur(18px);
+  position: relative;
+}
+
+.chat-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.18));
+  pointer-events: none;
+}
+
+.chat-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.chat-panel-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(13, 18, 32, 0.72);
+}
+
 .hud-card {
   display: flex;
   flex-direction: column;

@@ -755,9 +755,18 @@ const createRoom = (): RoomState => {
   return room;
 };
 
+const roomCanAcceptNewJoin = (room: RoomState) => {
+  const safeZone = room.safeZone;
+  return (
+    room.matchOverAt === 0 &&
+    safeZone.radius === SAFE_ZONE_START_RADIUS &&
+    Date.now() < safeZone.nextShrinkAt
+  );
+};
+
 const findRoomForJoin = () => {
   for (const room of rooms.values()) {
-    if (room.players.size < ROOM_CAP && room.matchOverAt === 0) {
+    if (room.players.size < ROOM_CAP && roomCanAcceptNewJoin(room)) {
       return room;
     }
   }
