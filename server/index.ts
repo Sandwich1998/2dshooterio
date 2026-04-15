@@ -108,7 +108,7 @@ type ChatMessage = {
 const clampNumber = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 
-const TICK_RATE = clampNumber(Number(process.env.SERVER_TICK_RATE ?? 30), 10, 60);
+const TICK_RATE = clampNumber(Number(process.env.SERVER_TICK_RATE ?? 60), 10, 60);
 const DT = 1 / TICK_RATE;
 const PORT = Number(process.env.SERVER_PORT ?? process.env.PORT ?? 3001);
 
@@ -267,7 +267,7 @@ const ROOM_CAP = 16;
 const rooms = new Map<string, RoomState>();
 const socketRoom = new Map<string, string>();
 const socketRate = new Map<string, RateState>();
-const SNAPSHOT_RATE = clampNumber(Number(process.env.SNAPSHOT_RATE ?? 30), 10, 60);
+const SNAPSHOT_RATE = clampNumber(Number(process.env.SNAPSHOT_RATE ?? 60), 10, 60);
 const MAX_MESSAGE_SIZE = 4096;
 const MAX_MESSAGES_PER_SEC = 120;
 const MAX_INPUTS_PER_SEC = 70;

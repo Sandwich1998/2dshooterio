@@ -107,7 +107,7 @@ type InputState = {
 };
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001";
-const INTERP_DELAY = 90;
+const INTERP_DELAY = 65;
 const CLIENT_SPEED = 260;
 const CLIENT_RADIUS = 14;
 const WEAPON_ICON_BASE = "/weapons/csgo";
@@ -174,6 +174,14 @@ const moveWithCollisionsClient = (
   }
 
   return { x: nextX, y: nextY };
+};
+
+const getViewportCenter = (canvas: HTMLCanvasElement | null) => {
+  if (canvas) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: rect.width * 0.5, y: rect.height * 0.5 };
+  }
+  return { x: window.innerWidth * 0.5, y: window.innerHeight * 0.5 };
 };
 
 export default function Home() {
@@ -411,6 +419,9 @@ export default function Home() {
   const sendInputNow = () => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== ws.OPEN) return;
+    const center = getViewportCenter(canvasRef.current);
+    inputRef.current.aimX = mouseRef.current.x - center.x;
+    inputRef.current.aimY = mouseRef.current.y - center.y;
     ws.send(
       JSON.stringify({
         type: "input",
@@ -880,14 +891,19 @@ export default function Home() {
 
     const handleMouseMove = (event: MouseEvent) => {
       mouseRef.current = { x: event.clientX, y: event.clientY };
+      if (inputRef.current.shoot) {
+        sendInputNow();
+      }
     };
 
     const handleMouseDown = () => {
       inputRef.current.shoot = true;
+      sendInputNow();
     };
 
     const handleMouseUp = () => {
       inputRef.current.shoot = false;
+      sendInputNow();
     };
 
     const handleVisibilityChange = () => {

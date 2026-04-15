@@ -8,6 +8,6 @@ services:
     healthCheckPath: /health
     envVars:
       - key: SERVER_TICK_RATE
-        value: "30"
+        value: "60"
       - key: SNAPSHOT_RATE
-        value: "30"
+        value: "60"
