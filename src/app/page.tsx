@@ -850,7 +850,11 @@ export default function Home() {
           if (isDown) inputRef.current.reload = true;
           break;
         case "e":
-          if (isDown) inputRef.current.interact = true;
+          if (isDown) {
+            inputRef.current.interact = true;
+            sendInputNow();
+            inputRef.current.interact = false;
+          }
           break;
         case "1":
           if (isDown) inputRef.current.slot1 = true;

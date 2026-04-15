@@ -125,6 +125,7 @@ const CRATE_COUNT = 32;
 const BOT_TARGET = 6;
 const KILLFEED_MAX = 6;
 const BOT_VISION_RANGE = 520;
+const CRATE_INTERACT_RADIUS = 150;
 
 const weapons: Weapon[] = [
   {
@@ -718,7 +719,7 @@ const applyBotBrain = (room: RoomState, bot: Player) => {
   }
 
   const nearCrate = room.crates.some(
-    (crate) => !crate.opened && distance(bot, crate) < 40
+    (crate) => !crate.opened && distance(bot, crate) < CRATE_INTERACT_RADIUS * 0.5
   );
 
   bot.input = {
@@ -1022,7 +1023,7 @@ const tickRoom = (room: RoomState) => {
       const target = room.crates
         .filter((crate) => !crate.opened)
         .map((crate) => ({ crate, dist: distance(player, crate) }))
-        .filter((entry) => entry.dist < 120)
+        .filter((entry) => entry.dist < CRATE_INTERACT_RADIUS)
         .sort((a, b) => a.dist - b.dist)[0]?.crate;
       if (target) openCrate(room, player, target);
     }
