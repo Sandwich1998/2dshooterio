@@ -124,7 +124,10 @@ const SHOT_LIFETIME_MS = 160;
 const CRATE_COUNT = 32;
 const BOT_TARGET = 6;
 const KILLFEED_MAX = 6;
-const BOT_VISION_RANGE = 520;
+const BOT_VISION_RANGE = 360;
+const BOT_ENGAGE_RANGE_FACTOR = 0.62;
+const BOT_SHOOT_CHANCE = 0.58;
+const BOT_EXTRA_SPREAD = 0.34;
 const CRATE_INTERACT_RADIUS = 150;
 
 const weapons: Weapon[] = [
@@ -684,10 +687,10 @@ const applyBotBrain = (room: RoomState, bot: Player) => {
   let move = { x: 0, y: 0 };
   let shouldShoot = false;
 
-  if (target && nearestDist < weapon.range * 0.9) {
+  if (target && nearestDist < Math.min(BOT_VISION_RANGE, weapon.range * BOT_ENGAGE_RANGE_FACTOR)) {
     aimX = target.x - bot.x;
     aimY = target.y - bot.y;
-    shouldShoot = true;
+    shouldShoot = Math.random() < BOT_SHOOT_CHANCE;
     const strafe = Math.random() < 0.5 ? -1 : 1;
     move = normalize(-(aimY) * strafe, aimX * strafe);
   } else {
@@ -899,7 +902,8 @@ const fireWeapon = (room: RoomState, player: Player, now: number) => {
   slot.ammo -= 1;
 
   const aim = normalize(player.input.aimX, player.input.aimY);
-  const spreadAngle = (Math.random() - 0.5) * weapon.spread;
+  const spreadAngle =
+    (Math.random() - 0.5) * (weapon.spread + (player.isBot ? BOT_EXTRA_SPREAD : 0));
   const angle = Math.atan2(aim.y, aim.x) + spreadAngle;
   const dir = { x: Math.cos(angle), y: Math.sin(angle) };
   const end = {
