@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: second-person-shooter-game-server
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:server
+    healthCheckPath: /health
+    envVars:
+      - key: SERVER_TICK_RATE
+        value: "20"
+      - key: SNAPSHOT_RATE
+        value: "20"

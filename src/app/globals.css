@@ -1,0 +1,622 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #eef1f7;
+  --bg-soft: #f7f9fc;
+  --ink: #0d1220;
+  --accent: #4f8cff;
+  --accent-2: #6c4bff;
+  --danger: #ff4d5a;
+  --fog: rgba(10, 12, 16, 0.62);
+  --panel: rgba(255, 255, 255, 0.9);
+  --panel-border: rgba(13, 18, 32, 0.08);
+  --neon: #4f8cff;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(108, 75, 255, 0.12), transparent 35%),
+    radial-gradient(circle at 85% 0%, rgba(79, 140, 255, 0.12), transparent 40%),
+    linear-gradient(140deg, #eef1f7 0%, #f7f9fc 55%, #edf0f6 100%);
+  color: var(--ink);
+  font-family: var(--font-display), "Space Grotesk", sans-serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.18), transparent 55%),
+    radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.12), transparent 60%),
+    radial-gradient(circle at 40% 80%, rgba(108, 75, 255, 0.08), transparent 60%),
+    radial-gradient(circle at 70% 70%, rgba(79, 140, 255, 0.06), transparent 60%);
+  mix-blend-mode: screen;
+  opacity: 0.8;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.35;
+}
+
+.hud-panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 18px 40px rgba(11, 14, 24, 0.08);
+  backdrop-filter: blur(10px);
+  position: relative;
+}
+
+.hud-title {
+  text-shadow: 0 0 14px rgba(108, 75, 255, 0.18);
+}
+
+.hud-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(13, 18, 32, 0.12);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(13, 18, 32, 0.6);
+  box-shadow: 0 10px 24px rgba(11, 14, 24, 0.08);
+}
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(13, 18, 32, 0.2);
+  background: rgba(255, 255, 255, 0.85);
+  color: rgba(13, 18, 32, 0.75);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.ui-button:hover {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 28px rgba(11, 14, 24, 0.12);
+  transform: translateY(-1px);
+}
+
+.ui-button-primary {
+  background: #0b1220;
+  border-color: rgba(11, 18, 32, 0.6);
+  color: #ffffff;
+  box-shadow: 0 12px 28px rgba(11, 18, 32, 0.22);
+}
+
+.ui-button-primary:hover {
+  background: #121a2e;
+}
+
+.ui-panel-soft {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(13, 18, 32, 0.08);
+  box-shadow: 0 18px 40px rgba(11, 14, 24, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.hud-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 18px;
+  border: 1px solid rgba(13, 18, 32, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 12px 14px;
+  box-shadow: 0 16px 36px rgba(11, 14, 24, 0.1);
+}
+
+.hud-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(13, 18, 32, 0.45);
+}
+
+.hud-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #0b1220;
+}
+
+.ui-slide-in {
+  animation: ui-slide-in 0.3s ease-out both;
+}
+
+.ui-fade-in {
+  animation: ui-fade-in 0.25s ease-out both;
+}
+
+@keyframes ui-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.loot-roll {
+  overflow: hidden;
+  width: min(520px, 80vw);
+}
+
+.loot-roll-window {
+  position: relative;
+  overflow: hidden;
+  border-radius: 999px;
+  padding: 6px 0;
+}
+
+.loot-roll-window::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0) 18%, rgba(255, 255, 255, 0) 82%, #ffffff 100%);
+  z-index: 2;
+}
+
+.loot-roll-track {
+  display: flex;
+  gap: 16px;
+  transition: transform 1.6s cubic-bezier(0.08, 0.7, 0.05, 1);
+  will-change: transform;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 6px 14px rgba(13, 18, 32, 0.12));
+}
+
+.loot-roll-freeze {
+  transition: transform 0.25s ease-out;
+}
+
+.loot-roll-item {
+  flex: 0 0 160px;
+  width: 160px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: #f2f5fa;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: rgba(10, 12, 16, 0.7);
+  letter-spacing: 0.02em;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.loot-roll-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loot-roll-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.loot-roll-final {
+  background: #0b1220;
+  color: #fff;
+  border-color: rgba(47, 125, 255, 0.5);
+  box-shadow: 0 0 12px rgba(47, 125, 255, 0.4);
+}
+
+.loot-roll-marker {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: rgba(47, 125, 255, 0.8);
+  box-shadow: 0 0 12px rgba(47, 125, 255, 0.5);
+  transform: translateX(-1px);
+}
+
+.loot-panel {
+  width: min(620px, 86vw);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.55), transparent 45%),
+    radial-gradient(circle at 85% 0%, rgba(120, 170, 255, 0.35), transparent 50%),
+    radial-gradient(circle at 50% 100%, rgba(180, 120, 255, 0.22), transparent 55%),
+    linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(239, 244, 255, 0.92));
+  border: 1px solid rgba(10, 12, 20, 0.1);
+  box-shadow: 0 30px 80px rgba(10, 14, 26, 0.25);
+  backdrop-filter: blur(14px) saturate(1.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.loot-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 8px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  color: rgba(12, 16, 28, 0.5);
+}
+
+.loot-panel-title {
+  padding: 0 18px 10px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0b1220;
+  text-shadow: 0 10px 30px rgba(12, 16, 28, 0.15);
+}
+
+.loot-roll {
+  padding: 0 12px 16px;
+  background: transparent;
+}
+
+.loot-panel-legendary {
+  border-color: rgba(217, 164, 65, 0.5);
+  box-shadow: 0 30px 80px rgba(217, 164, 65, 0.25);
+}
+
+.loot-panel-legendary::after {
+  background: radial-gradient(circle at 50% 0%, rgba(255, 220, 140, 0.6), transparent 55%);
+}
+
+.loot-panel-epic {
+  border-color: rgba(136, 71, 255, 0.5);
+  box-shadow: 0 28px 74px rgba(136, 71, 255, 0.25);
+}
+
+.loot-panel-rare {
+  border-color: rgba(75, 105, 255, 0.45);
+  box-shadow: 0 26px 70px rgba(75, 105, 255, 0.22);
+}
+
+.loot-aura {
+  position: absolute;
+  inset: -30%;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.45), transparent 40%),
+    radial-gradient(circle at 70% 10%, rgba(120, 170, 255, 0.35), transparent 45%),
+    radial-gradient(circle at 50% 70%, rgba(180, 120, 255, 0.3), transparent 50%);
+  filter: blur(6px);
+  opacity: 0.85;
+  animation: loot-aura-drift 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.loot-orbit {
+  position: absolute;
+  inset: 12%;
+  border-radius: 999px;
+  border: 1px dashed rgba(120, 170, 255, 0.45);
+  box-shadow: 0 0 40px rgba(120, 170, 255, 0.3);
+  animation: loot-orbit-spin 8s linear infinite;
+  pointer-events: none;
+}
+
+.loot-roll-window {
+  padding: 14px 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(242, 246, 255, 0.9)),
+    radial-gradient(circle at 50% 0%, rgba(79, 140, 255, 0.22), transparent 60%);
+  border: 1px solid rgba(10, 12, 20, 0.12);
+  box-shadow: inset 0 0 26px rgba(90, 120, 255, 0.16);
+}
+
+.loot-roll-item {
+  background: #ffffff;
+  border: 1px solid rgba(10, 12, 20, 0.12);
+  box-shadow:
+    inset 0 -2px 8px rgba(10, 12, 20, 0.08),
+    0 10px 24px rgba(10, 14, 26, 0.08);
+  color: rgba(10, 12, 16, 0.8);
+  position: relative;
+  overflow: hidden;
+}
+
+.loot-roll-item:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.loot-roll-final {
+  border-width: 2px;
+  box-shadow: 0 0 18px rgba(79, 140, 255, 0.6);
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.4);
+  animation: loot-final-pop 0.35s ease-out, loot-final-glow 1.6s ease-in-out infinite;
+}
+
+.loot-roll-marker {
+  background: linear-gradient(180deg, rgba(126, 180, 255, 0), rgba(126, 180, 255, 1), rgba(126, 180, 255, 0));
+  width: 4px;
+  box-shadow: 0 0 26px rgba(126, 180, 255, 0.9);
+}
+
+.loot-roll-item::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0) 35%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0) 65%);
+  transform: translateX(-60%);
+  opacity: 0.4;
+  animation: loot-item-sheen 2.4s ease-in-out infinite;
+}
+
+.loot-roll-final::after {
+  opacity: 0.7;
+  animation-duration: 1.6s;
+}
+
+.rarity-tag {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #0b1220;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.6));
+  border: 1px solid rgba(10, 12, 20, 0.08);
+}
+
+.loot-roll-window::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.6) 50%, rgba(255, 255, 255, 0) 70%);
+  opacity: 0.35;
+  animation: loot-sheen 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes loot-sheen {
+  0% {
+    transform: translateX(-60%);
+  }
+  60% {
+    transform: translateX(60%);
+  }
+  100% {
+    transform: translateX(60%);
+  }
+}
+
+@keyframes loot-item-sheen {
+  0% {
+    transform: translateX(-60%);
+  }
+  55% {
+    transform: translateX(60%);
+  }
+  100% {
+    transform: translateX(60%);
+  }
+}
+
+@keyframes loot-final-pop {
+  0% {
+    transform: scale(0.96);
+  }
+  70% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes loot-final-glow {
+  0% {
+    box-shadow: 0 0 12px rgba(79, 140, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 26px rgba(79, 140, 255, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 12px rgba(79, 140, 255, 0.5);
+  }
+}
+
+.ammo-pop {
+  animation: ammo-pop 0.18s ease-out;
+}
+
+@keyframes ammo-pop {
+  0% {
+    transform: scale(1);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+
+canvas {
+  display: block;
+}
+
+.weapon-sprite {
+  display: inline-block;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-color: transparent;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.loot-panel::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 40% 0%, rgba(255, 255, 255, 0.6), transparent 55%),
+    radial-gradient(circle at 70% 20%, rgba(140, 200, 255, 0.25), transparent 50%);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.loot-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 26px;
+  background-image:
+    radial-gradient(circle at 20% 40%, rgba(255, 255, 255, 0.28), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.loot-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.9) 0 1px, transparent 2px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.8) 0 1px, transparent 2px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.7) 0 1px, transparent 2px);
+  background-size: 120px 120px, 160px 160px, 220px 220px;
+  background-position: 0 0, 40px 60px, 80px 20px;
+  opacity: 0.35;
+  animation: sparkles-drift 6s linear infinite;
+}
+
+.loot-panel-legendary .loot-sparkles {
+  opacity: 0.6;
+  filter: drop-shadow(0 0 12px rgba(255, 220, 140, 0.6));
+}
+
+.loot-panel-finale {
+  animation: loot-finale-pulse 0.5s ease-out;
+}
+
+.loot-burst {
+  position: absolute;
+  inset: 50%;
+  width: 280px;
+  height: 280px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 25%, rgba(255, 255, 255, 0) 60%);
+  opacity: 0.6;
+  animation: loot-burst 0.5s ease-out;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+@keyframes sparkles-drift {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-30px);
+  }
+}
+
+@keyframes loot-burst {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes loot-finale-pulse {
+  0% {
+    transform: translateY(0) scale(0.98);
+  }
+  60% {
+    transform: translateY(0) scale(1.02);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes loot-aura-drift {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(2deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+@keyframes loot-orbit-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
