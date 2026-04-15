@@ -1590,7 +1590,7 @@ export default function Home() {
         );
       }
 
-      const zoom = isMobileUi ? 0.36 : 1.15;
+      const zoom = isMobileUi ? 0.22 : 1.15;
       const worldToScreen = (x: number, y: number) => ({
         x: (x - camX) * zoom + width / 2,
         y: (y - camY) * zoom + height / 2,
@@ -1662,11 +1662,11 @@ export default function Home() {
         ctx.restore();
       }
 
-      ctx.strokeStyle = isMobileUi ? "rgba(79, 140, 255, 0.62)" : "rgba(79, 140, 255, 0.9)";
-      ctx.lineWidth = isMobileUi ? 1.5 : 3;
+      ctx.strokeStyle = isMobileUi ? "rgba(79, 140, 255, 0.44)" : "rgba(79, 140, 255, 0.9)";
+      ctx.lineWidth = isMobileUi ? 1 : 3;
       if (!lowFx) {
-        ctx.shadowColor = isMobileUi ? "rgba(108, 75, 255, 0.14)" : "rgba(108, 75, 255, 0.3)";
-        ctx.shadowBlur = isMobileUi ? 4 : 10;
+        ctx.shadowColor = isMobileUi ? "rgba(108, 75, 255, 0.08)" : "rgba(108, 75, 255, 0.3)";
+        ctx.shadowBlur = isMobileUi ? 2 : 10;
       }
       ctx.beginPath();
       ctx.arc(zonePos.x, zonePos.y, state.safeZone.radius, 0, Math.PI * 2);
