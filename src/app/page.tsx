@@ -2148,7 +2148,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 w-[min(22rem,calc(100%-2rem))] md:bottom-6 md:left-6 md:w-[22rem]">
+      <div className="pointer-events-none absolute left-4 top-48 w-[min(22rem,calc(100%-2rem))] md:left-6 md:top-56 md:w-[22rem]">
         <div className="chat-panel ui-slide-in rounded-[24px] px-4 py-3 text-black shadow-[0_18px_42px_rgba(11,14,24,0.14)]">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
