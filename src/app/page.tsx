@@ -1964,31 +1964,20 @@ export default function Home() {
         ctx.restore();
       }
 
-      const minimapSize = isMobileUi ? 18 : 160;
-      const miniX = isMobileUi ? 5 : 24;
-      const miniY = isMobileUi ? 5 : Math.max(24, height - minimapSize - 240);
-      ctx.fillStyle = isMobileUi ? "rgba(255, 255, 255, 0.45)" : "rgba(255, 255, 255, 0.85)";
-      ctx.fillRect(miniX, miniY, minimapSize, minimapSize);
-      ctx.strokeStyle = isMobileUi ? "rgba(20, 24, 32, 0.1)" : "rgba(20, 24, 32, 0.2)";
-      ctx.strokeRect(miniX, miniY, minimapSize, minimapSize);
+      if (!isMobileUi) {
+        const minimapSize = 160;
+        const miniX = 24;
+        const miniY = Math.max(24, height - minimapSize - 240);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+        ctx.fillRect(miniX, miniY, minimapSize, minimapSize);
+        ctx.strokeStyle = "rgba(20, 24, 32, 0.2)";
+        ctx.strokeRect(miniX, miniY, minimapSize, minimapSize);
 
-      const mapScaleX = minimapSize / state.map.width;
-      const mapScaleY = minimapSize / state.map.height;
-      const safeMiniX = miniX + state.safeZone.x * mapScaleX;
-      const safeMiniY = miniY + state.safeZone.y * mapScaleY;
-      const safeMiniR = state.safeZone.radius * mapScaleX;
-      if (isMobileUi) {
-        const ringRadius = Math.min(safeMiniR, minimapSize * 0.38);
-        ctx.strokeStyle = "rgba(79, 140, 255, 0.32)";
-        ctx.lineWidth = 0.5;
-        ctx.beginPath();
-        ctx.arc(safeMiniX, safeMiniY, ringRadius, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = "rgba(79, 140, 255, 0.85)";
-        ctx.beginPath();
-        ctx.arc(safeMiniX, safeMiniY, 0.9, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
+        const mapScaleX = minimapSize / state.map.width;
+        const mapScaleY = minimapSize / state.map.height;
+        const safeMiniX = miniX + state.safeZone.x * mapScaleX;
+        const safeMiniY = miniY + state.safeZone.y * mapScaleY;
+        const safeMiniR = state.safeZone.radius * mapScaleX;
         ctx.strokeStyle = "rgba(79, 140, 255, 0.95)";
         ctx.beginPath();
         ctx.arc(safeMiniX, safeMiniY, safeMiniR, 0, Math.PI * 2);
