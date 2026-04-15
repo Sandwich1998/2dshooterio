@@ -1260,15 +1260,9 @@ export default function Home() {
             predicted.y = authoritativeMe.y;
           }
         } else {
-          // Stop local movement immediately on key release instead of visually coasting.
-          const serverDrift = Math.hypot(
-            predicted.x - authoritativeMe.x,
-            predicted.y - authoritativeMe.y
-          );
-          if (serverDrift > 24) {
-            predicted.x = authoritativeMe.x;
-            predicted.y = authoritativeMe.y;
-          }
+          // On key release, snap local prediction to the latest server position immediately.
+          predicted.x = authoritativeMe.x;
+          predicted.y = authoritativeMe.y;
         }
         predictedRef.current = predicted;
         predictedMe = { ...authoritativeMe, x: predicted.x, y: predicted.y };
