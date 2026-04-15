@@ -1251,16 +1251,13 @@ export default function Home() {
           );
           predicted.x = move.x;
           predicted.y = move.y;
-          const serverDrift = Math.hypot(
-            predicted.x - authoritativeMe.x,
-            predicted.y - authoritativeMe.y
-          );
-          if (serverDrift > 64) {
-            predicted.x = authoritativeMe.x;
-            predicted.y = authoritativeMe.y;
-          }
-        } else {
-          // On key release, snap local prediction to the latest server position immediately.
+        }
+        const serverDrift = Math.hypot(
+          predicted.x - authoritativeMe.x,
+          predicted.y - authoritativeMe.y
+        );
+        // Let local input own the feel; only reconcile when the prediction meaningfully diverges.
+        if (serverDrift > 72) {
           predicted.x = authoritativeMe.x;
           predicted.y = authoritativeMe.y;
         }
