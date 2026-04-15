@@ -1249,9 +1249,12 @@ export default function Home() {
           predicted.x = lerp(predicted.x, me.x, correction);
           predicted.y = lerp(predicted.y, me.y, correction);
         } else {
-          const correction = Math.min(1, dt * 8);
-          predicted.x = lerp(predicted.x, me.x, correction);
-          predicted.y = lerp(predicted.y, me.y, correction);
+          // Stop local movement immediately on key release instead of visually coasting.
+          const serverDrift = Math.hypot(predicted.x - me.x, predicted.y - me.y);
+          if (serverDrift > 24) {
+            predicted.x = me.x;
+            predicted.y = me.y;
+          }
         }
         predictedRef.current = predicted;
         predictedMe = { ...me, x: predicted.x, y: predicted.y };
@@ -1588,13 +1591,18 @@ export default function Home() {
       state.players.forEach((player) => {
         const targetPlayer =
           player.id === myIdRef.current && predictedMe ? predictedMe : player;
-        const existing = renderPosRef.current.get(player.id);
-        const smooth = existing
-          ? {
-              x: lerp(existing.x, targetPlayer.x, Math.min(1, dt * 12)),
-              y: lerp(existing.y, targetPlayer.y, Math.min(1, dt * 12)),
-            }
-          : { x: targetPlayer.x, y: targetPlayer.y };
+        const smooth =
+          player.id === myIdRef.current
+            ? { x: targetPlayer.x, y: targetPlayer.y }
+            : (() => {
+                const existing = renderPosRef.current.get(player.id);
+                return existing
+                  ? {
+                      x: lerp(existing.x, targetPlayer.x, Math.min(1, dt * 12)),
+                      y: lerp(existing.y, targetPlayer.y, Math.min(1, dt * 12)),
+                    }
+                  : { x: targetPlayer.x, y: targetPlayer.y };
+              })();
         renderPosRef.current.set(player.id, smooth);
         const renderPlayer = { ...targetPlayer, x: smooth.x, y: smooth.y };
         const pos = worldToScreen(renderPlayer.x, renderPlayer.y);
