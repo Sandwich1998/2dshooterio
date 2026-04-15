@@ -1299,14 +1299,16 @@ export default function Home() {
     if (key === "xm1014") {
       return (
         <svg viewBox="0 0 56 20" className={iconClass} aria-hidden="true">
-          <rect x="2" y="8" width="28" height="3" rx="1.5" fill="currentColor" />
-          <rect x="3" y="11" width="19" height="2" rx="1" fill="currentColor" />
-          <rect x="23" y="6" width="13" height="7" rx="2" fill="currentColor" />
-          <rect x="27" y="5" width="9" height="1.5" rx="0.75" fill="currentColor" />
-          <path d="M35 11 H42 L48 8.8 V10.8 L42 13 H35 Z" fill="currentColor" />
-          <path d="M34 13 L40 13 L46 17 H41 L37 15.5 L37 18 L34 18 Z" fill="currentColor" />
-          <rect x="49" y="8" width="3" height="6" rx="0.8" fill="currentColor" />
-          <rect x="6" y="6" width="3" height="2" rx="0.6" fill="currentColor" />
+          <rect x="2" y="7.2" width="20" height="2.1" rx="1" fill="currentColor" />
+          <rect x="2.6" y="10.1" width="15.4" height="1.8" rx="0.9" fill="currentColor" />
+          <rect x="17.8" y="8.1" width="0.9" height="4.8" rx="0.4" fill="currentColor" />
+          <rect x="18.8" y="6.4" width="14.8" height="5.6" rx="1.4" fill="currentColor" />
+          <rect x="21.8" y="5.2" width="8.8" height="1.1" rx="0.5" fill="currentColor" />
+          <rect x="31.8" y="6.6" width="0.9" height="1.2" rx="0.4" fill="currentColor" />
+          <path d="M33.5 8.7 H40.2 L47.2 6.9 L50.2 8.2 L48.2 9.3 L47 9.3 L47 10.8 L48.7 13.3 L46 13.3 L44.2 10.6 L40.5 10.6 L40.5 16.8 L38.2 16.8 L35.7 11.9 L33.5 11.9 Z" fill="currentColor" />
+          <path d="M27.3 12 L30.6 12 L32.9 17.7 L30.6 17.7 L28.2 14.5 L28.2 17.7 L26.1 17.7 L26.1 13 Z" fill="currentColor" />
+          <rect x="50.1" y="6.8" width="1.8" height="7" rx="0.4" fill="currentColor" />
+          <path d="M3.4 6.2 L5.1 4.6 L5.1 6.2 Z" fill="currentColor" />
         </svg>
       );
     }
@@ -1478,9 +1480,13 @@ export default function Home() {
         };
       }
 
-      const me = state.players.find((player) => player.id === myIdRef.current);
+      const playersById = new Map(state.players.map((player) => [player.id, player]));
+      const me = myIdRef.current ? playersById.get(myIdRef.current) : undefined;
+      const latestPlayersById = latestState
+        ? new Map(latestState.players.map((player) => [player.id, player]))
+        : null;
       const authoritativeMe =
-        latestState?.players.find((player) => player.id === myIdRef.current) ?? me;
+        (myIdRef.current ? latestPlayersById?.get(myIdRef.current) : undefined) ?? me;
       const now = performance.now();
       const lastFrame = lastFrameRef.current;
       const dt = lastFrame ? Math.min(0.05, Math.max(0.001, (now - lastFrame) / 1000)) : 1 / 60;
@@ -1515,9 +1521,10 @@ export default function Home() {
         predictedRef.current = null;
       }
       const alivePlayers = state.players.filter((player) => player.alive);
+      const playerIds = new Set(state.players.map((player) => player.id));
       const lowFx = perfMode || state.players.length > 18 || state.shots.length > 20;
       const spectateTarget =
-        state.players.find((player) => player.id === spectateRef.current) ??
+        (spectateRef.current ? playersById.get(spectateRef.current) : undefined) ??
         (me?.alive ? me : alivePlayers[0]) ??
         me;
 
@@ -2112,7 +2119,7 @@ export default function Home() {
         unseen.forEach((shot) => recentShots.add(shot.id));
         if (nowMs - lastShotSoundAtRef.current > 90) {
           const listener =
-            state.players.find((player) => player.id === spectateRef.current) ??
+            (spectateRef.current ? playersById.get(spectateRef.current) : undefined) ??
             me ??
             state.players[0];
           if (listener) {
@@ -2139,7 +2146,7 @@ export default function Home() {
       }
 
       renderPosRef.current.forEach((_, key) => {
-        if (!state.players.find((player) => player.id === key)) {
+        if (!playerIds.has(key)) {
           renderPosRef.current.delete(key);
         }
       });
