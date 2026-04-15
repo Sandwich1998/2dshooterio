@@ -27,16 +27,22 @@
 html,
 body {
   height: 100%;
+  overscroll-behavior: none;
 }
 
 body {
   margin: 0;
+  overflow: hidden;
   background:
     radial-gradient(circle at 15% 10%, rgba(108, 75, 255, 0.12), transparent 35%),
     radial-gradient(circle at 85% 0%, rgba(79, 140, 255, 0.12), transparent 40%),
     linear-gradient(140deg, #eef1f7 0%, #f7f9fc 55%, #edf0f6 100%);
   color: var(--ink);
   font-family: var(--font-display), "Space Grotesk", sans-serif;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 body::before {
@@ -200,6 +206,106 @@ body::after {
 
 .ui-fade-in {
   animation: ui-fade-in 0.25s ease-out both;
+}
+
+.mobile-stick-shell {
+  position: relative;
+  width: 116px;
+  height: 116px;
+  border-radius: 999px;
+  border: 1px solid rgba(13, 18, 32, 0.16);
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 12px 28px rgba(11, 14, 24, 0.14);
+  touch-action: none;
+}
+
+.mobile-stick-shell-active {
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 14px 32px rgba(11, 14, 24, 0.18);
+}
+
+.mobile-stick-shell-aim {
+  background: rgba(11, 18, 32, 0.14);
+}
+
+.mobile-stick-ring {
+  position: absolute;
+  inset: 12px;
+  border-radius: 999px;
+  border: 1px dashed rgba(13, 18, 32, 0.18);
+}
+
+.mobile-stick-thumb {
+  position: absolute;
+  left: 35px;
+  top: 35px;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(223, 230, 242, 0.88));
+  box-shadow: 0 12px 24px rgba(11, 14, 24, 0.22);
+  transition: transform 0.05s linear;
+}
+
+.mobile-stick-thumb-aim {
+  background: linear-gradient(180deg, rgba(79, 140, 255, 0.96), rgba(62, 88, 185, 0.92));
+}
+
+.mobile-action-button {
+  min-width: 72px;
+  height: 52px;
+  border: 1px solid rgba(13, 18, 32, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #0b1220;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow: 0 12px 28px rgba(11, 14, 24, 0.14);
+  backdrop-filter: blur(14px);
+  touch-action: manipulation;
+}
+
+.mobile-hint-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.mobile-hint-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(13, 18, 32, 0.1);
+  box-shadow: 0 10px 24px rgba(11, 14, 24, 0.08);
+  color: rgba(13, 18, 32, 0.68);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .hud-card {
+    gap: 4px;
+    border-radius: 16px;
+    padding: 10px 12px;
+  }
+
+  .hud-value {
+    font-size: 0.95rem;
+  }
+
+  .loot-roll {
+    width: min(92vw, 420px);
+  }
 }
 
 @keyframes ui-slide-in {

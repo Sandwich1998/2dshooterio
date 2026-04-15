@@ -106,6 +106,15 @@ type InputState = {
   swap: boolean;
 };
 
+type StickState = {
+  pointerId: number | null;
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  active: boolean;
+};
+
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001";
 const INTERP_DELAY = 65;
 const CLIENT_SPEED = 260;
@@ -115,6 +124,15 @@ const WEAPON_ICON_BASE = "/weapons/csgo";
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
+const normalizeStick = (dx: number, dy: number, radius: number) => {
+  const len = Math.hypot(dx, dy);
+  if (len <= 0.0001) {
+    return { x: 0, y: 0, distance: 0 };
+  }
+  const clamped = Math.min(radius, len);
+  const scale = clamped / len;
+  return { x: dx * scale, y: dy * scale, distance: clamped / radius };
+};
 
 const fillNoiseData = (data: Float32Array, intensity: number) => {
   for (let i = 0; i < data.length; i += 1) {
@@ -211,10 +229,30 @@ export default function Home() {
   const mouseRef = useRef({ x: 0, y: 0 });
   const aimSmoothRef = useRef({ x: 1, y: 0 });
   const pressedKeysRef = useRef<Set<string>>(new Set());
+  const mobilePerfAutoRef = useRef(false);
+  const moveStickRef = useRef<StickState>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    x: 0,
+    y: 0,
+    active: false,
+  });
+  const aimStickRef = useRef<StickState>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    x: 0,
+    y: 0,
+    active: false,
+  });
 
   const [status, setStatus] = useState<"idle" | "connecting" | "ready">("idle");
   const [name, setName] = useState("Operator");
   const [perfMode, setPerfMode] = useState(false);
+  const [isMobileUi, setIsMobileUi] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
+  const [touchControlsReady, setTouchControlsReady] = useState(false);
   const skins = useMemo(
     () => ["#2f7dff", "#ff5c7a", "#f5c04d", "#3ddc97", "#6f78ff", "#ff8a4c", "#25c2ff"],
     []
@@ -444,6 +482,60 @@ export default function Home() {
     inputRef.current.left = false;
     inputRef.current.right = false;
     inputRef.current.shoot = false;
+    inputRef.current.reload = false;
+    inputRef.current.interact = false;
+    inputRef.current.slot1 = false;
+    inputRef.current.slot2 = false;
+    inputRef.current.swap = false;
+    moveStickRef.current = {
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      x: 0,
+      y: 0,
+      active: false,
+    };
+    aimStickRef.current = {
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      x: 0,
+      y: 0,
+      active: false,
+    };
+  };
+
+  const syncMoveStickInput = () => {
+    const stick = moveStickRef.current;
+    const deadZone = 0.18;
+    inputRef.current.left = stick.active && stick.x < -deadZone;
+    inputRef.current.right = stick.active && stick.x > deadZone;
+    inputRef.current.up = stick.active && stick.y < -deadZone;
+    inputRef.current.down = stick.active && stick.y > deadZone;
+  };
+
+  const updateAimFromStick = (x: number, y: number) => {
+    const len = Math.hypot(x, y);
+    if (len < 0.12) {
+      return;
+    }
+    const canvas = canvasRef.current;
+    const center = getViewportCenter(canvas);
+    const aimRadius = Math.min(center.x, center.y) * 0.7;
+    mouseRef.current = {
+      x: center.x + x * aimRadius,
+      y: center.y + y * aimRadius,
+    };
+    inputRef.current.aimX = x * aimRadius;
+    inputRef.current.aimY = y * aimRadius;
+  };
+
+  const triggerInstantAction = (key: "reload" | "interact" | "slot1" | "slot2" | "swap") => {
+    inputRef.current[key] = true;
+    sendInputNow();
+    window.setTimeout(() => {
+      inputRef.current[key] = false;
+    }, 0);
   };
 
   const playShotSound = () => {
@@ -826,6 +918,30 @@ export default function Home() {
   );
 
   useEffect(() => {
+    const updateTouchProfile = () => {
+      const coarse = window.matchMedia("(pointer: coarse)").matches;
+      const narrow = window.innerWidth <= 1024;
+      const shortSide = Math.min(window.innerWidth, window.innerHeight);
+      const mobile = coarse && (narrow || shortSide <= 900);
+      setIsMobileUi(mobile);
+      setIsLandscape(window.innerWidth > window.innerHeight);
+      if (mobile && shortSide <= 900 && !mobilePerfAutoRef.current) {
+        mobilePerfAutoRef.current = true;
+        setPerfMode(true);
+      }
+    };
+
+    updateTouchProfile();
+    window.addEventListener("resize", updateTouchProfile);
+    window.addEventListener("orientationchange", updateTouchProfile);
+
+    return () => {
+      window.removeEventListener("resize", updateTouchProfile);
+      window.removeEventListener("orientationchange", updateTouchProfile);
+    };
+  }, []);
+
+  useEffect(() => {
     const handleKey = (event: KeyboardEvent, isDown: boolean) => {
       const key = event.key.toLowerCase();
       if (event.key === "Tab") {
@@ -939,14 +1055,16 @@ export default function Home() {
 
     const keyDown = (event: KeyboardEvent) => handleKey(event, true);
     const keyUp = (event: KeyboardEvent) => handleKey(event, false);
-    window.addEventListener("keydown", keyDown);
-    window.addEventListener("keyup", keyUp);
-    window.addEventListener("keydown", preventZoomKeys);
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mousedown", handleMouseDown);
-    window.addEventListener("mouseup", handleMouseUp);
-    window.addEventListener("mouseleave", handleMouseLeave);
-    window.addEventListener("wheel", preventZoomWheel, { passive: false });
+    if (!isMobileUi) {
+      window.addEventListener("keydown", keyDown);
+      window.addEventListener("keyup", keyUp);
+      window.addEventListener("keydown", preventZoomKeys);
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mousedown", handleMouseDown);
+      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("mouseleave", handleMouseLeave);
+      window.addEventListener("wheel", preventZoomWheel, { passive: false });
+    }
     window.addEventListener("blur", handleWindowBlur);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
@@ -962,7 +1080,7 @@ export default function Home() {
       window.removeEventListener("blur", handleWindowBlur);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [perfMode]);
+  }, [isMobileUi, perfMode]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -2072,23 +2190,34 @@ export default function Home() {
   const matchOverAt = stateRef.current?.match?.overAt ?? 0;
   const matchEnded = matchOverAt > 0 && now >= matchOverAt;
   const timeToNextMatch = matchOverAt > now ? Math.max(0, Math.ceil((matchOverAt - now) / 1000)) : 0;
+  const moveStick = moveStickRef.current;
+  const aimStick = aimStickRef.current;
+  const mobileControlsVisible = isMobileUi && status === "ready";
+  const showRotateHint = mobileControlsVisible && !isLandscape;
+  const controlHints = isMobileUi
+    ? ["Left stick to move", "Right stick to aim and fire", "Tap loot, reload, or swap"]
+    : memoizedControls;
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      <canvas ref={canvasRef} className="h-screen w-screen" />
+      <canvas ref={canvasRef} className="h-screen w-screen touch-none" />
 
       <div className="pointer-events-none absolute left-0 top-0 flex h-full w-full flex-col justify-between">
-        <div className="flex flex-col gap-3 px-4 pt-4 md:px-6 md:pt-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="hud-panel ui-slide-in rounded-2xl px-5 py-4 backdrop-blur">
+        <div className="flex flex-col gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-6 md:pt-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="hud-panel ui-slide-in max-w-[min(100%,26rem)] rounded-2xl px-4 py-3 backdrop-blur md:px-5 md:py-4">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="hud-title text-xs uppercase tracking-[0.35em] text-black/60">
                   Dustline
                 </p>
-                <p className="text-lg font-semibold text-black">Tactical Battle Royale</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.35em] text-black/50">
-                  Live Drop Zone
+                <p className="text-base font-semibold text-black md:text-lg">
+                  Tactical Battle Royale
                 </p>
+                {!isMobileUi && (
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.35em] text-black/50">
+                    Live Drop Zone
+                  </p>
+                )}
               </div>
               <div className="flex flex-col items-end gap-2">
                 <span className="ui-chip">
@@ -2097,7 +2226,7 @@ export default function Home() {
                 <span className="ui-chip">Server {hostLabel(WS_URL)}</span>
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-black/50">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-black/50">
               <span>Performance</span>
               <button
                 className="ui-button pointer-events-auto px-3 py-1 text-[10px]"
@@ -2105,6 +2234,7 @@ export default function Home() {
               >
                 {perfMode ? "On" : "Off"}
               </button>
+              {isMobileUi && <span className="ui-chip">Mobile HUD</span>}
             </div>
           </div>
           <div className="flex w-full max-w-72 flex-col gap-2 self-end text-right">
@@ -2125,8 +2255,8 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 px-4 pb-4 md:px-6 md:pb-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="hud-card ui-slide-in text-black/80">
+        <div className="flex flex-col gap-3 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6 md:pb-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="hud-card ui-slide-in max-w-[min(100%,18rem)] text-black/80">
             <p className="hud-label">Loadout</p>
             <div className="mt-1 flex items-center gap-2">
               <span className="rounded-full bg-white/80 p-1 ring-1 ring-black/10">
@@ -2150,7 +2280,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex gap-3 self-end">
+          <div className="flex gap-2 self-end md:gap-3">
             <div className="hud-card ui-slide-in text-black/80">
               <p className="hud-label">HP</p>
               <p className="hud-value">{hud.hp}</p>
@@ -2168,7 +2298,13 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="pointer-events-none absolute left-4 top-48 w-[min(22rem,calc(100%-2rem))] md:left-6 md:top-56 md:w-[22rem]">
+      <div
+        className={`pointer-events-none absolute w-[min(22rem,calc(100%-1.5rem))] md:left-6 md:w-[22rem] ${
+          isMobileUi
+            ? "left-3 top-[calc(env(safe-area-inset-top)+5.5rem)]"
+            : "left-4 top-48"
+        }`}
+      >
         <div className="chat-panel ui-slide-in rounded-[24px] px-4 py-3 text-black shadow-[0_18px_42px_rgba(11,14,24,0.14)]">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
@@ -2177,13 +2313,13 @@ export default function Home() {
                 Match chat
               </p>
             </div>
-            {!chatOpen && (
+            {!chatOpen && !isMobileUi && (
               <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-700/85">
                 Press Enter
               </p>
             )}
           </div>
-          <div className="max-h-44 space-y-1.5 overflow-hidden text-sm">
+          <div className={`space-y-1.5 overflow-hidden text-sm ${isMobileUi ? "max-h-20" : "max-h-44"}`}>
             {chatLog.slice(-6).map((msg) => (
               <p key={msg.id}>
                 <span className="font-semibold" style={{ color: msg.color }}>
@@ -2209,6 +2345,21 @@ export default function Home() {
                 className="w-full rounded-2xl border border-emerald-600/30 bg-white/72 px-3 py-2 text-sm text-black placeholder:text-black/40 focus:border-emerald-600/60 focus:outline-none"
                 placeholder="Type message…"
               />
+            </div>
+          )}
+          {isMobileUi && !chatOpen && (
+            <div className="pointer-events-auto mt-3">
+              <button
+                className="ui-button w-full justify-center rounded-2xl py-2 text-[11px]"
+                onClick={() => {
+                  setChatOpen(true);
+                  window.setTimeout(() => {
+                    chatInputRef.current?.focus();
+                  }, 0);
+                }}
+              >
+                Open Chat
+              </button>
             </div>
           )}
         </div>
@@ -2416,6 +2567,212 @@ export default function Home() {
         </div>
       )}
 
+      {showRotateHint && (
+        <div className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)+6.5rem)] flex justify-center px-4">
+          <div className="ui-panel-soft ui-slide-in rounded-[24px] px-5 py-3 text-center text-sm text-black shadow-xl">
+            Rotate your phone to landscape for the smoothest controls.
+          </div>
+        </div>
+      )}
+
+      {mobileControlsVisible && (
+        <>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between px-[max(0.75rem,env(safe-area-inset-left))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pr-[max(0.75rem,env(safe-area-inset-right))]">
+            <div className="pointer-events-auto flex items-end gap-3">
+              <div
+                className={`mobile-stick-shell ${moveStick.active ? "mobile-stick-shell-active" : ""}`}
+                onPointerDown={(event) => {
+                  if (!isMobileUi) return;
+                  event.preventDefault();
+                  setTouchControlsReady(true);
+                  const next = moveStickRef.current;
+                  next.pointerId = event.pointerId;
+                  next.startX = event.clientX;
+                  next.startY = event.clientY;
+                  next.x = 0;
+                  next.y = 0;
+                  next.active = true;
+                  syncMoveStickInput();
+                  sendInputNow();
+                  (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
+                }}
+                onPointerMove={(event) => {
+                  const stick = moveStickRef.current;
+                  if (stick.pointerId !== event.pointerId) return;
+                  event.preventDefault();
+                  const normalized = normalizeStick(
+                    event.clientX - stick.startX,
+                    event.clientY - stick.startY,
+                    46
+                  );
+                  stick.x = normalized.x / 46;
+                  stick.y = normalized.y / 46;
+                  syncMoveStickInput();
+                }}
+                onPointerUp={(event) => {
+                  const stick = moveStickRef.current;
+                  if (stick.pointerId !== event.pointerId) return;
+                  event.preventDefault();
+                  moveStickRef.current = {
+                    pointerId: null,
+                    startX: 0,
+                    startY: 0,
+                    x: 0,
+                    y: 0,
+                    active: false,
+                  };
+                  syncMoveStickInput();
+                  sendInputNow();
+                }}
+                onPointerCancel={(event) => {
+                  const stick = moveStickRef.current;
+                  if (stick.pointerId !== event.pointerId) return;
+                  moveStickRef.current = {
+                    pointerId: null,
+                    startX: 0,
+                    startY: 0,
+                    x: 0,
+                    y: 0,
+                    active: false,
+                  };
+                  syncMoveStickInput();
+                }}
+              >
+                <div className="mobile-stick-ring" />
+                <div
+                  className="mobile-stick-thumb"
+                  style={{
+                    transform: `translate(${moveStick.x * 46}px, ${moveStick.y * 46}px)`,
+                  }}
+                />
+              </div>
+              <div className="mobile-hint-chip">{touchControlsReady ? "Move" : "Hold"}</div>
+            </div>
+
+            <div className="pointer-events-auto flex items-end gap-3">
+              <div className="flex flex-col gap-2">
+                <button
+                  className="mobile-action-button"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    triggerInstantAction("interact");
+                  }}
+                >
+                  Loot
+                </button>
+                <button
+                  className="mobile-action-button"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    triggerInstantAction("reload");
+                  }}
+                >
+                  Reload
+                </button>
+              </div>
+              <div className="flex flex-col gap-2">
+                <button
+                  className="mobile-action-button"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    triggerInstantAction("swap");
+                  }}
+                >
+                  Swap
+                </button>
+                <button
+                  className="mobile-action-button"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    triggerInstantAction(hud.activeSlot === 0 ? "slot2" : "slot1");
+                  }}
+                >
+                  Weapon
+                </button>
+              </div>
+              <div
+                className={`mobile-stick-shell mobile-stick-shell-aim ${aimStick.active ? "mobile-stick-shell-active" : ""}`}
+                onPointerDown={(event) => {
+                  if (!isMobileUi) return;
+                  event.preventDefault();
+                  setTouchControlsReady(true);
+                  const next = aimStickRef.current;
+                  next.pointerId = event.pointerId;
+                  next.startX = event.clientX;
+                  next.startY = event.clientY;
+                  next.x = 0;
+                  next.y = 0;
+                  next.active = true;
+                  inputRef.current.shoot = true;
+                  sendInputNow();
+                  (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
+                }}
+                onPointerMove={(event) => {
+                  const stick = aimStickRef.current;
+                  if (stick.pointerId !== event.pointerId) return;
+                  event.preventDefault();
+                  const normalized = normalizeStick(
+                    event.clientX - stick.startX,
+                    event.clientY - stick.startY,
+                    46
+                  );
+                  stick.x = normalized.x / 46;
+                  stick.y = normalized.y / 46;
+                  inputRef.current.shoot = normalized.distance > 0.16;
+                  updateAimFromStick(stick.x, stick.y);
+                }}
+                onPointerUp={(event) => {
+                  const stick = aimStickRef.current;
+                  if (stick.pointerId !== event.pointerId) return;
+                  event.preventDefault();
+                  aimStickRef.current = {
+                    pointerId: null,
+                    startX: 0,
+                    startY: 0,
+                    x: 0,
+                    y: 0,
+                    active: false,
+                  };
+                  inputRef.current.shoot = false;
+                  sendInputNow();
+                }}
+                onPointerCancel={(event) => {
+                  const stick = aimStickRef.current;
+                  if (stick.pointerId !== event.pointerId) return;
+                  aimStickRef.current = {
+                    pointerId: null,
+                    startX: 0,
+                    startY: 0,
+                    x: 0,
+                    y: 0,
+                    active: false,
+                  };
+                  inputRef.current.shoot = false;
+                }}
+              >
+                <div className="mobile-stick-ring" />
+                <div
+                  className="mobile-stick-thumb mobile-stick-thumb-aim"
+                  style={{
+                    transform: `translate(${aimStick.x * 46}px, ${aimStick.y * 46}px)`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+8.75rem)] flex justify-center px-4">
+            <div className="mobile-hint-row">
+              {controlHints.map((item) => (
+                <span key={item} className="mobile-hint-chip">
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       {status !== "ready" && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/70">
           <div className="w-full max-w-md rounded-3xl border border-black/10 bg-white px-8 py-10 text-black shadow-2xl">
@@ -2465,7 +2822,7 @@ export default function Home() {
             <div className="ui-panel-soft mt-6 rounded-2xl px-4 py-3">
               <p className="text-xs uppercase tracking-[0.3em] text-black/50">Controls</p>
               <ul className="mt-2 space-y-1 text-sm text-black/70">
-                {memoizedControls.map((item) => (
+                {controlHints.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
