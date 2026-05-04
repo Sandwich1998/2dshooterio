@@ -276,6 +276,10 @@ const MAX_MESSAGES_PER_SEC = 120;
 const MAX_INPUTS_PER_SEC = 70;
 const CHAT_COOLDOWN_MS = 650;
 const PING_COOLDOWN_MS = 400;
+const USERNAME_MAX_LENGTH = 16;
+
+const normalizeUsername = (value: string) =>
+  value.replace(/\s+/g, " ").trim().slice(0, USERNAME_MAX_LENGTH);
 
 const walls = [
   // Soft cover / props
@@ -1153,13 +1157,8 @@ const send = (socket: WebSocket, data: unknown) => {
 
 wss.on("connection", (socket) => {
   const id = randomUUID();
-  const color = palette[Math.floor(Math.random() * palette.length)];
-  const room = findRoomForJoin();
-  const player = createPlayer(id, `Operator-${id.slice(0, 4)}`, color);
+  let color = palette[Math.floor(Math.random() * palette.length)];
 
-  room.players.set(id, player);
-  room.sockets.set(id, socket);
-  socketRoom.set(id, room.id);
   socketRate.set(id, {
     windowStart: Date.now(),
     msgCount: 0,
@@ -1174,12 +1173,6 @@ wss.on("connection", (socket) => {
     map: MAP,
     weapons,
     walls,
-    safeZone: {
-      x: room.safeZone.x,
-      y: room.safeZone.y,
-      radius: room.safeZone.radius,
-      nextShrinkAt: room.safeZone.nextShrinkAt,
-    },
   });
 
   socket.on("message", (data) => {
@@ -1187,12 +1180,6 @@ wss.on("connection", (socket) => {
       const raw = data.toString();
       if (raw.length > MAX_MESSAGE_SIZE) return;
       const msg = JSON.parse(raw);
-      const roomId = socketRoom.get(id);
-      if (!roomId) return;
-      const currentRoom = rooms.get(roomId);
-      if (!currentRoom) return;
-      if (!currentRoom.players.has(id)) return;
-      const current = currentRoom.players.get(id)!;
       const now = Date.now();
       const rate = socketRate.get(id);
       if (!rate) return;
@@ -1204,11 +1191,45 @@ wss.on("connection", (socket) => {
       rate.msgCount += 1;
       if (rate.msgCount > MAX_MESSAGES_PER_SEC) return;
       if (msg.type === "join" && typeof msg.name === "string") {
-        current.name = msg.name.slice(0, 16);
-        if (typeof msg.skin === "string" && palette.includes(msg.skin)) {
-          current.color = msg.skin;
+        const username = normalizeUsername(msg.name);
+        if (!username) {
+          send(socket, { type: "error", message: "Enter a username to join." });
+          return;
         }
+        if (typeof msg.skin === "string" && palette.includes(msg.skin)) {
+          color = msg.skin;
+        }
+        const roomId = socketRoom.get(id);
+        const currentRoom = roomId ? rooms.get(roomId) : undefined;
+        const current = currentRoom?.players.get(id);
+        if (currentRoom && current) {
+          current.name = username;
+          current.color = color;
+          return;
+        }
+        const room = findRoomForJoin();
+        const player = createPlayer(id, username, color);
+        room.players.set(id, player);
+        room.sockets.set(id, socket);
+        socketRoom.set(id, room.id);
+        send(socket, {
+          type: "joined",
+          roomId: room.id,
+          safeZone: {
+            x: room.safeZone.x,
+            y: room.safeZone.y,
+            radius: room.safeZone.radius,
+            nextShrinkAt: room.safeZone.nextShrinkAt,
+          },
+        });
+        return;
       }
+      const roomId = socketRoom.get(id);
+      if (!roomId) return;
+      const currentRoom = rooms.get(roomId);
+      if (!currentRoom) return;
+      if (!currentRoom.players.has(id)) return;
+      const current = currentRoom.players.get(id)!;
       if (msg.type === "respawn") {
         const currentName = current.name;
         const currentColor = current.color;

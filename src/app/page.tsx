@@ -120,6 +120,7 @@ const INTERP_DELAY = 35;
 const CLIENT_SPEED = 260;
 const CLIENT_RADIUS = 14;
 const WEAPON_ICON_BASE = "/weapons/csgo";
+const USERNAME_MAX_LENGTH = 16;
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp = (value: number, min: number, max: number) =>
@@ -142,6 +143,8 @@ const fillNoiseData = (data: Float32Array, intensity: number) => {
 
 const hostLabel = (url: string) => url.replace(/^wss?:\/\//, "");
 const MOVEMENT_KEYS = new Set(["w", "a", "s", "d"]);
+const normalizeUsername = (value: string) =>
+  value.replace(/\s+/g, " ").trim().slice(0, USERNAME_MAX_LENGTH);
 
 const getInputDirection = (input: InputState) => {
   const x = Number(input.right) - Number(input.left);
@@ -251,7 +254,8 @@ export default function Home() {
   });
 
   const [status, setStatus] = useState<"idle" | "connecting" | "ready">("idle");
-  const [name, setName] = useState("Operator");
+  const [name, setName] = useState("");
+  const [nameError, setNameError] = useState("");
   const [perfMode, setPerfMode] = useState(false);
   const [isMobileUi, setIsMobileUi] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
@@ -347,6 +351,14 @@ export default function Home() {
   } | null>(null);
 
   const connect = () => {
+    const playerName = normalizeUsername(name);
+    if (!playerName) {
+      setNameError("Enter a username to join.");
+      setName("");
+      return;
+    }
+    setName(playerName);
+    setNameError("");
     if (wsRef.current) {
       wsRef.current.close();
     }
@@ -388,10 +400,6 @@ export default function Home() {
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
-    ws.onopen = () => {
-      setStatus("ready");
-    };
-
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === "welcome") {
@@ -417,7 +425,13 @@ export default function Home() {
         setKillFeed([]);
         spectateRef.current = data.id;
         setSpectateId(data.id);
-        ws.send(JSON.stringify({ type: "join", name, skin }));
+        ws.send(JSON.stringify({ type: "join", name: playerName, skin }));
+        setStatus("ready");
+        return;
+      }
+      if (data.type === "error" && typeof data.message === "string") {
+        setNameError(data.message);
+        setStatus("idle");
         return;
       }
       if (data.type === "pong" && typeof data.t === "number") {
@@ -2483,7 +2497,7 @@ export default function Home() {
                 ← Prev
               </button>
               <span className="max-w-[140px] truncate text-sm font-semibold text-black">
-                {stateRef.current.players.find((p) => p.id === spectateId)?.name ?? "Operator"}
+                {stateRef.current.players.find((p) => p.id === spectateId)?.name ?? "Player"}
               </span>
               <button className="ui-button" onClick={() => handleSpectate(1)}>
                 Next →
@@ -2812,7 +2826,13 @@ export default function Home() {
 
       {status !== "ready" && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/70">
-          <div className="w-full max-w-md rounded-3xl border border-black/10 bg-white px-8 py-10 text-black shadow-2xl">
+          <form
+            className="w-full max-w-md rounded-3xl border border-black/10 bg-white px-8 py-10 text-black shadow-2xl"
+            onSubmit={(event) => {
+              event.preventDefault();
+              connect();
+            }}
+          >
             <p className="text-xs uppercase tracking-[0.35em] text-black/40">
               Dustline
             </p>
@@ -2823,22 +2843,40 @@ export default function Home() {
             </p>
             <div className="mt-6 flex flex-col gap-3">
               <label className="text-xs uppercase tracking-[0.3em] text-black/50">
-                Callsign
+                Username
               </label>
               <input
                 value={name}
-                onChange={(event) => setName(event.target.value)}
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-black placeholder:text-black/40 focus:border-black/40 focus:outline-none"
-                placeholder="Operator"
+                onChange={(event) => {
+                  setName(event.target.value);
+                  if (nameError) setNameError("");
+                }}
+                className={`w-full rounded-xl border bg-white px-4 py-3 text-black placeholder:text-black/40 focus:outline-none ${
+                  nameError
+                    ? "border-red-400 focus:border-red-500"
+                    : "border-black/10 focus:border-black/40"
+                }`}
+                placeholder="Username"
+                maxLength={USERNAME_MAX_LENGTH}
+                required
+                aria-invalid={nameError ? "true" : "false"}
+                aria-describedby={nameError ? "username-error" : undefined}
+                autoFocus
               />
+              {nameError && (
+                <p id="username-error" className="text-sm font-semibold text-red-600">
+                  {nameError}
+                </p>
+              )}
             </div>
             <div className="mt-5">
               <p className="text-xs uppercase tracking-[0.3em] text-black/50">
-                Operator Skin
+                Player Skin
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 {skins.map((tone) => (
                   <button
+                    type="button"
                     key={tone}
                     onClick={() => setSkin(tone)}
                     className={`h-10 w-10 rounded-full border-2 transition ${
@@ -2851,7 +2889,8 @@ export default function Home() {
               </div>
             </div>
             <button
-              onClick={connect}
+              type="submit"
+              disabled={status === "connecting"}
               className="ui-button ui-button-primary mt-6 w-full rounded-xl py-3 text-sm"
             >
               {status === "connecting" ? "Connecting..." : "Enter Match"}
@@ -2864,7 +2903,7 @@ export default function Home() {
                 ))}
               </ul>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </div>
