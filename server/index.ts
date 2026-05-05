@@ -129,6 +129,7 @@ const BOT_ENGAGE_RANGE_FACTOR = 0.62;
 const BOT_SHOOT_CHANCE = 0.58;
 const BOT_EXTRA_SPREAD = 0.34;
 const CRATE_INTERACT_RADIUS = 150;
+const MATCH_START_DELAY_MS = 3000;
 
 const weapons: Weapon[] = [
   {
@@ -367,6 +368,7 @@ type RoomState = {
   lastResults: MatchResults | null;
   chatLog: ChatMessage[];
   matchOverAt: number;
+  startAt: number;
   lastBroadcastAt: number;
   safeZone: SafeZone;
 };
@@ -756,6 +758,7 @@ const createRoom = (): RoomState => {
     lastResults: null,
     chatLog: [],
     matchOverAt: 0,
+    startAt: 0,
     lastBroadcastAt: 0,
     safeZone: createSafeZone(),
   };
@@ -763,12 +766,31 @@ const createRoom = (): RoomState => {
   return room;
 };
 
+const scheduleRoomStart = (room: RoomState, now = Date.now()) => {
+  if (room.startAt > 0 && now >= room.startAt) return;
+  room.startAt = Math.max(room.startAt, now + MATCH_START_DELAY_MS);
+  room.safeZone.nextShrinkAt = Math.max(
+    room.safeZone.nextShrinkAt,
+    room.startAt + SAFE_ZONE_INTERVAL_MS
+  );
+};
+
+const freezeRoomInputs = (room: RoomState) => {
+  room.players.forEach((player) => {
+    player.input = createInput();
+    player.velX = 0;
+    player.velY = 0;
+  });
+};
+
 const roomCanAcceptNewJoin = (room: RoomState) => {
   const safeZone = room.safeZone;
+  const now = Date.now();
   return (
     room.matchOverAt === 0 &&
     safeZone.radius === SAFE_ZONE_START_RADIUS &&
-    Date.now() < safeZone.nextShrinkAt
+    now < safeZone.nextShrinkAt &&
+    (room.startAt === 0 || now < room.startAt)
   );
 };
 
@@ -786,7 +808,8 @@ const findRoomForJoin = () => {
 const removeFromRoom = (room: RoomState, playerId: string) => {
   room.players.delete(playerId);
   room.sockets.delete(playerId);
-  if (room.players.size === 0) {
+  const hasHumans = Array.from(room.players.values()).some((player) => !player.isBot);
+  if (!hasHumans) {
     rooms.delete(room.id);
   }
 };
@@ -978,9 +1001,20 @@ const fireWeapon = (room: RoomState, player: Player, now: number) => {
 
 const tickRoom = (room: RoomState) => {
   const now = Date.now();
-  shrinkSafeZone(room);
   ensureCrates(room);
   ensureBots(room);
+
+  if (room.startAt > now) {
+    freezeRoomInputs(room);
+    room.shots = [];
+    if (now - room.lastBroadcastAt >= 1000 / SNAPSHOT_RATE) {
+      room.lastBroadcastAt = now;
+      broadcastState(room);
+    }
+    return;
+  }
+
+  shrinkSafeZone(room);
 
   room.players.forEach((player) => {
     if (player.isBot) applyBotBrain(room, player);
@@ -1120,6 +1154,7 @@ const broadcastState = (room: RoomState) => {
       overAt: room.matchOverAt,
       results: room.lastResults,
       phase: room.matchOverAt > 0 ? "resetting" : "playing",
+      startAt: room.startAt,
     },
     aliveCount: getAlivePlayers(room).length,
     chat: room.chatLog,
@@ -1212,9 +1247,11 @@ wss.on("connection", (socket) => {
         room.players.set(id, player);
         room.sockets.set(id, socket);
         socketRoom.set(id, room.id);
+        scheduleRoomStart(room, now);
         send(socket, {
           type: "joined",
           roomId: room.id,
+          startAt: room.startAt,
           safeZone: {
             x: room.safeZone.x,
             y: room.safeZone.y,
@@ -1240,11 +1277,13 @@ wss.on("connection", (socket) => {
         nextRoom.players.set(id, nextPlayer);
         nextRoom.sockets.set(id, socket);
         socketRoom.set(id, nextRoom.id);
+        scheduleRoomStart(nextRoom, now);
         send(socket, {
           type: "welcome",
           id,
           weapons,
           walls,
+          startAt: nextRoom.startAt,
           safeZone: {
             x: nextRoom.safeZone.x,
             y: nextRoom.safeZone.y,

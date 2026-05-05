@@ -74,6 +74,7 @@ type ServerState = {
     overAt: number;
     results: MatchResults | null;
     phase: "playing" | "resetting";
+    startAt: number;
   };
   aliveCount: number;
 };
@@ -115,12 +116,16 @@ type StickState = {
   active: boolean;
 };
 
+type MatchStatus = "idle" | "matchmaking" | "connecting" | "ready";
+
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001";
 const INTERP_DELAY = 35;
 const CLIENT_SPEED = 260;
 const CLIENT_RADIUS = 14;
 const WEAPON_ICON_BASE = "/weapons/csgo";
 const USERNAME_MAX_LENGTH = 16;
+const MATCHMAKING_DURATION_MS = 10000;
+const DEPLOY_COUNTDOWN_MS = 3000;
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp = (value: number, min: number, max: number) =>
@@ -253,13 +258,15 @@ export default function Home() {
     active: false,
   });
 
-  const [status, setStatus] = useState<"idle" | "connecting" | "ready">("idle");
+  const [status, setStatus] = useState<MatchStatus>("idle");
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState("");
   const [perfMode, setPerfMode] = useState(false);
   const [isMobileUi, setIsMobileUi] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [touchControlsReady, setTouchControlsReady] = useState(false);
+  const [matchmakingEndsAt, setMatchmakingEndsAt] = useState(0);
+  const [deployEndsAt, setDeployEndsAt] = useState(0);
   const skins = useMemo(
     () => ["#2f7dff", "#ff5c7a", "#f5c04d", "#3ddc97", "#6f78ff", "#ff8a4c", "#25c2ff"],
     []
@@ -300,6 +307,10 @@ export default function Home() {
   const recentShotsRef = useRef<Set<string>>(new Set());
   const lastShotSoundAtRef = useRef(0);
   const readyTickTimeoutRef = useRef<number | null>(null);
+  const matchmakingTimeoutRef = useRef<number | null>(null);
+  const deployUnlockTimeoutRef = useRef<number | null>(null);
+  const inputLockedRef = useRef(false);
+  const pendingJoinRef = useRef<{ name: string; skin: string } | null>(null);
   const pingSentAtRef = useRef(0);
   const [pingMs, setPingMs] = useState(0);
   const reverbRef = useRef<{
@@ -350,19 +361,23 @@ export default function Home() {
     serverY: number;
   } | null>(null);
 
-  const connect = () => {
-    const playerName = normalizeUsername(name);
-    if (!playerName) {
-      setNameError("Enter a username to join.");
-      setName("");
-      return;
+  const clearMatchmakingTimer = () => {
+    if (matchmakingTimeoutRef.current !== null) {
+      window.clearTimeout(matchmakingTimeoutRef.current);
+      matchmakingTimeoutRef.current = null;
     }
-    setName(playerName);
-    setNameError("");
-    if (wsRef.current) {
-      wsRef.current.close();
+  };
+
+  const clearDeploymentCountdown = () => {
+    if (deployUnlockTimeoutRef.current !== null) {
+      window.clearTimeout(deployUnlockTimeoutRef.current);
+      deployUnlockTimeoutRef.current = null;
     }
-    setStatus("connecting");
+    inputLockedRef.current = false;
+    setDeployEndsAt(0);
+  };
+
+  const ensureAudioContext = () => {
     if (!audioRef.current) {
       const audio = new AudioContext();
       audioRef.current = audio;
@@ -397,82 +412,10 @@ export default function Home() {
       }
       reverbRef.current = { input, output, delay, feedback, filter };
     }
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "welcome") {
-        myIdRef.current = data.id;
-        weaponsRef.current = data.weapons;
-        if (data.map) {
-          mapRef.current = data.map;
-        }
-        if (Array.isArray(data.walls)) {
-          wallsRef.current = data.walls;
-        }
-        const idMap = new Map<string, Weapon>();
-        const nameMap = new Map<string, Weapon>();
-        for (const weapon of data.weapons as Weapon[]) {
-          idMap.set(weapon.id, weapon);
-          nameMap.set(weapon.name, weapon);
-        }
-        weaponsByIdRef.current = idMap;
-        weaponsByNameRef.current = nameMap;
-        stateRef.current = null;
-        snapshotsRef.current = [];
-        killFeedRef.current = [];
-        setKillFeed([]);
-        spectateRef.current = data.id;
-        setSpectateId(data.id);
-        ws.send(JSON.stringify({ type: "join", name: playerName, skin }));
-        setStatus("ready");
-        return;
-      }
-      if (data.type === "error" && typeof data.message === "string") {
-        setNameError(data.message);
-        setStatus("idle");
-        return;
-      }
-      if (data.type === "pong" && typeof data.t === "number") {
-        setPingMs(Math.max(1, Math.round(Date.now() - data.t)));
-        return;
-      }
-      if (data.type === "state") {
-        if (!data.map && mapRef.current) {
-          data.map = mapRef.current;
-        }
-        if (!data.walls && wallsRef.current.length > 0) {
-          data.walls = wallsRef.current;
-        }
-        stateRef.current = data;
-        snapshotsRef.current.push(data);
-        if (snapshotsRef.current.length > 6) {
-          snapshotsRef.current.shift();
-        }
-        if (Array.isArray(data.chat)) {
-          setChatLog(
-            data.chat.map(
-              (msg: { id: string; name: string; text: string; color: string }) => ({
-                id: msg.id,
-                name: msg.name,
-                text: msg.text,
-                color: msg.color,
-              })
-            )
-          );
-        }
-      }
-    };
-
-    ws.onclose = () => {
-      setStatus("idle");
-      myIdRef.current = null;
-      wsRef.current = null;
-    };
   };
 
   const sendInputNow = () => {
+    if (inputLockedRef.current) return;
     const ws = wsRef.current;
     if (!ws || ws.readyState !== ws.OPEN) return;
     const center = getViewportCenter(canvasRef.current);
@@ -521,6 +464,163 @@ export default function Home() {
       y: 0,
       active: false,
     };
+  };
+
+  const startDeploymentCountdown = () => {
+    clearDeploymentCountdown();
+    clearHeldInput();
+    const endsAt = new Date().getTime() + DEPLOY_COUNTDOWN_MS;
+    inputLockedRef.current = true;
+    setDeployEndsAt(endsAt);
+    deployUnlockTimeoutRef.current = window.setTimeout(() => {
+      clearHeldInput();
+      inputLockedRef.current = false;
+      deployUnlockTimeoutRef.current = null;
+      setDeployEndsAt(0);
+    }, DEPLOY_COUNTDOWN_MS);
+  };
+
+  const openMatchConnection = (playerName: string, playerSkin: string) => {
+    clearMatchmakingTimer();
+    pendingJoinRef.current = null;
+    setMatchmakingEndsAt(0);
+    setStatus("connecting");
+    ensureAudioContext();
+
+    if (wsRef.current) {
+      const previousWs = wsRef.current;
+      wsRef.current = null;
+      previousWs.close();
+    }
+
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "welcome") {
+        myIdRef.current = data.id;
+        weaponsRef.current = data.weapons;
+        if (data.map) {
+          mapRef.current = data.map;
+        }
+        if (Array.isArray(data.walls)) {
+          wallsRef.current = data.walls;
+        }
+        const idMap = new Map<string, Weapon>();
+        const nameMap = new Map<string, Weapon>();
+        for (const weapon of data.weapons as Weapon[]) {
+          idMap.set(weapon.id, weapon);
+          nameMap.set(weapon.name, weapon);
+        }
+        weaponsByIdRef.current = idMap;
+        weaponsByNameRef.current = nameMap;
+        stateRef.current = null;
+        snapshotsRef.current = [];
+        killFeedRef.current = [];
+        matchResultsRef.current = null;
+        setKillFeed([]);
+        setMatchResults(null);
+        spectateRef.current = data.id;
+        setSpectateId(data.id);
+        ws.send(JSON.stringify({ type: "join", name: playerName, skin: playerSkin }));
+        startDeploymentCountdown();
+        setStatus("ready");
+        return;
+      }
+      if (data.type === "error" && typeof data.message === "string") {
+        clearDeploymentCountdown();
+        setNameError(data.message);
+        setStatus("idle");
+        return;
+      }
+      if (data.type === "pong" && typeof data.t === "number") {
+        setPingMs(Math.max(1, Math.round(Date.now() - data.t)));
+        return;
+      }
+      if (data.type === "state") {
+        if (!data.map && mapRef.current) {
+          data.map = mapRef.current;
+        }
+        if (!data.walls && wallsRef.current.length > 0) {
+          data.walls = wallsRef.current;
+        }
+        stateRef.current = data;
+        snapshotsRef.current.push(data);
+        if (snapshotsRef.current.length > 6) {
+          snapshotsRef.current.shift();
+        }
+        if (Array.isArray(data.chat)) {
+          setChatLog(
+            data.chat.map(
+              (msg: { id: string; name: string; text: string; color: string }) => ({
+                id: msg.id,
+                name: msg.name,
+                text: msg.text,
+                color: msg.color,
+              })
+            )
+          );
+        }
+      }
+    };
+
+    ws.onclose = () => {
+      if (wsRef.current !== ws) return;
+      clearDeploymentCountdown();
+      setStatus("idle");
+      myIdRef.current = null;
+      wsRef.current = null;
+    };
+  };
+
+  const beginMatchmaking = () => {
+    if (status !== "idle") return;
+    const playerName = normalizeUsername(name);
+    if (!playerName) {
+      setNameError("Enter a username to join.");
+      setName("");
+      return;
+    }
+
+    clearMatchmakingTimer();
+    clearDeploymentCountdown();
+    ensureAudioContext();
+    setName(playerName);
+    setNameError("");
+    setPingMs(0);
+    setMatchResults(null);
+    pendingJoinRef.current = { name: playerName, skin };
+
+    if (wsRef.current) {
+      const previousWs = wsRef.current;
+      wsRef.current = null;
+      previousWs.close();
+    }
+
+    const endsAt = new Date().getTime() + MATCHMAKING_DURATION_MS;
+    setMatchmakingEndsAt(endsAt);
+    setStatus("matchmaking");
+    matchmakingTimeoutRef.current = window.setTimeout(() => {
+      const pending = pendingJoinRef.current;
+      matchmakingTimeoutRef.current = null;
+      if (!pending) return;
+      openMatchConnection(pending.name, pending.skin);
+    }, MATCHMAKING_DURATION_MS);
+  };
+
+  const cancelMatchmaking = () => {
+    clearMatchmakingTimer();
+    clearDeploymentCountdown();
+    pendingJoinRef.current = null;
+    setMatchmakingEndsAt(0);
+    if (wsRef.current) {
+      const ws = wsRef.current;
+      wsRef.current = null;
+      ws.close();
+    }
+    myIdRef.current = null;
+    setStatus("idle");
   };
 
   const syncMoveStickInput = () => {
@@ -967,6 +1067,11 @@ export default function Home() {
   useEffect(() => {
     const handleKey = (event: KeyboardEvent, isDown: boolean) => {
       const key = event.key.toLowerCase();
+      if (inputLockedRef.current) {
+        event.preventDefault();
+        clearHeldInput();
+        return;
+      }
       if (event.key === "Tab") {
         event.preventDefault();
         setShowScoreboard(isDown);
@@ -1029,6 +1134,7 @@ export default function Home() {
     };
 
     const handleMouseMove = (event: MouseEvent) => {
+      if (inputLockedRef.current) return;
       mouseRef.current = { x: event.clientX, y: event.clientY };
       if (inputRef.current.shoot) {
         sendInputNow();
@@ -1036,11 +1142,13 @@ export default function Home() {
     };
 
     const handleMouseDown = () => {
+      if (inputLockedRef.current) return;
       inputRef.current.shoot = true;
       sendInputNow();
     };
 
     const handleMouseUp = () => {
+      if (inputLockedRef.current) return;
       inputRef.current.shoot = false;
       sendInputNow();
     };
@@ -1114,6 +1222,11 @@ export default function Home() {
       if (pingSentAtRef.current === 0 || Date.now() - pingSentAtRef.current > 1000) {
         pingSentAtRef.current = Date.now();
         ws.send(JSON.stringify({ type: "ping", t: pingSentAtRef.current }));
+      }
+
+      if (inputLockedRef.current) {
+        clearHeldInput();
+        return;
       }
 
       ws.send(
@@ -1413,6 +1526,24 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (matchmakingTimeoutRef.current !== null) {
+        window.clearTimeout(matchmakingTimeoutRef.current);
+      }
+      if (deployUnlockTimeoutRef.current !== null) {
+        window.clearTimeout(deployUnlockTimeoutRef.current);
+      }
+      inputLockedRef.current = false;
+      pendingJoinRef.current = null;
+      if (wsRef.current) {
+        const ws = wsRef.current;
+        wsRef.current = null;
+        ws.close();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     window.localStorage.setItem("sps-perf-mode", perfMode ? "1" : "0");
   }, [perfMode]);
 
@@ -1555,7 +1686,8 @@ export default function Home() {
         spectateTarget?.id === myIdRef.current && predictedMe ? predictedMe : spectateTarget;
       const targetX = camTarget ? camTarget.x : state.map.width / 2;
       const targetY = camTarget ? camTarget.y : state.map.height / 2;
-      if (!lastFrame) {
+      const followingLocalPlayer = camTarget?.id === myIdRef.current && Boolean(predictedMe?.alive);
+      if (!lastFrame || followingLocalPlayer) {
         camRef.current.x = targetX;
         camRef.current.y = targetY;
       } else {
@@ -1588,6 +1720,7 @@ export default function Home() {
         x: (x - camX) * zoom + width / 2,
         y: (y - camY) * zoom + height / 2,
       });
+      const snapScreen = (value: number) => Math.round(value * dpr) / dpr;
       const onScreen = (x: number, y: number, padding = 40) =>
         x > -padding && y > -padding && x < width + padding && y < height + padding;
 
@@ -1879,7 +2012,11 @@ export default function Home() {
               })();
         renderPosRef.current.set(player.id, smooth);
         const renderPlayer = { ...targetPlayer, x: smooth.x, y: smooth.y };
-        const pos = worldToScreen(renderPlayer.x, renderPlayer.y);
+        const rawPos = worldToScreen(renderPlayer.x, renderPlayer.y);
+        const pos = {
+          x: snapScreen(rawPos.x),
+          y: snapScreen(rawPos.y),
+        };
         if (!onScreen(pos.x, pos.y, 80)) return;
         ctx.save();
         if (!lowFx) {
@@ -1901,35 +2038,41 @@ export default function Home() {
         ctx.stroke();
 
         const hasArmor = renderPlayer.armor > 0;
-        const hpBarY = hasArmor ? pos.y - 25 * zoom : pos.y - 28 * zoom;
+        const barWidth = snapScreen(36 * zoom);
+        const armorBarHeight = Math.max(1, snapScreen(5 * zoom));
+        const hpBarHeight = Math.max(1, snapScreen(6 * zoom));
+        const barX = snapScreen(pos.x - barWidth / 2);
+        const armorBarY = snapScreen(pos.y - 32 * zoom);
+        const hpBarY = snapScreen(pos.y - (hasArmor ? 25 : 28) * zoom);
         if (hasArmor) {
           ctx.fillStyle = "#ffffff";
-          ctx.fillRect(pos.x - 18 * zoom, pos.y - 32 * zoom, 36 * zoom, 5 * zoom);
+          ctx.fillRect(barX, armorBarY, barWidth, armorBarHeight);
           ctx.fillStyle = "#6c4bff";
           ctx.fillRect(
-            pos.x - 18 * zoom,
-            pos.y - 32 * zoom,
-            36 * zoom * (renderPlayer.armor / 100),
-            5 * zoom
+            barX,
+            armorBarY,
+            snapScreen(barWidth * (renderPlayer.armor / 100)),
+            armorBarHeight
           );
         }
         ctx.fillStyle = "#ffffff";
-        ctx.fillRect(pos.x - 18 * zoom, hpBarY, 36 * zoom, 6 * zoom);
+        ctx.fillRect(barX, hpBarY, barWidth, hpBarHeight);
         ctx.fillStyle = renderPlayer.hp > 0 ? "#2f7dff" : "#ff4d5a";
         ctx.fillRect(
-          pos.x - 18 * zoom,
+          barX,
           hpBarY,
-          36 * zoom * (renderPlayer.hp / 100),
-          6 * zoom
+          snapScreen(barWidth * (renderPlayer.hp / 100)),
+          hpBarHeight
         );
 
+        const nameY = snapScreen(pos.y - (hasArmor ? 42 : 38) * zoom);
         ctx.font = "600 12px Space Grotesk, sans-serif";
         ctx.textAlign = "center";
         ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
         ctx.lineWidth = 3;
-        ctx.strokeText(renderPlayer.name, pos.x, pos.y - (hasArmor ? 42 : 38) * zoom);
+        ctx.strokeText(renderPlayer.name, pos.x, nameY);
         ctx.fillStyle = "#0b1220";
-        ctx.fillText(renderPlayer.name, pos.x, pos.y - (hasArmor ? 42 : 38) * zoom);
+        ctx.fillText(renderPlayer.name, pos.x, nameY);
       });
 
       const nowMs = Date.now();
@@ -2200,9 +2343,24 @@ export default function Home() {
   const matchOverAt = stateRef.current?.match?.overAt ?? 0;
   const matchEnded = matchOverAt > 0 && now >= matchOverAt;
   const timeToNextMatch = matchOverAt > now ? Math.max(0, Math.ceil((matchOverAt - now) / 1000)) : 0;
+  const matchmakingSeconds =
+    status === "matchmaking" && matchmakingEndsAt > now
+      ? Math.max(1, Math.ceil((matchmakingEndsAt - now) / 1000))
+      : 0;
+  const matchmakingProgress =
+    status === "matchmaking" && matchmakingEndsAt > 0
+      ? clamp(1 - Math.max(0, matchmakingEndsAt - now) / MATCHMAKING_DURATION_MS, 0, 1)
+      : status === "connecting"
+        ? 1
+        : 0;
+  const deployReadyAt = Math.max(deployEndsAt, stateRef.current?.match?.startAt ?? 0);
+  const deployCountdown =
+    status === "ready" && deployReadyAt > now
+      ? Math.max(1, Math.ceil((deployReadyAt - now) / 1000))
+      : 0;
   const moveStick = moveStickRef.current;
   const aimStick = aimStickRef.current;
-  const mobileControlsVisible = isMobileUi && status === "ready";
+  const mobileControlsVisible = isMobileUi && status === "ready" && deployCountdown === 0;
   const showRotateHint = mobileControlsVisible && !isLandscape;
   const controlHints = isMobileUi
     ? ["Left stick to move", "Right stick to aim and fire", "Tap loot, reload, or swap"]
@@ -2484,6 +2642,22 @@ export default function Home() {
         <div className="pointer-events-none absolute inset-x-0 top-36 flex justify-center">
           <div className="ui-button ui-button-primary ui-slide-in rounded-full px-6 py-2 text-sm font-semibold text-white shadow-lg">
             {killBanner.text}
+          </div>
+        </div>
+      )}
+
+      {deployCountdown > 0 && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]">
+          <div className="deploy-countdown-shell ui-slide-in text-center text-black">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-black/45">
+              Match Found
+            </p>
+            <div className="deploy-countdown-number" key={deployCountdown}>
+              {deployCountdown}
+            </div>
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-black/60">
+              Deploying
+            </p>
           </div>
         </div>
       )}
@@ -2830,7 +3004,7 @@ export default function Home() {
             className="w-full max-w-md rounded-3xl border border-black/10 bg-white px-8 py-10 text-black shadow-2xl"
             onSubmit={(event) => {
               event.preventDefault();
-              connect();
+              beginMatchmaking();
             }}
           >
             <p className="text-xs uppercase tracking-[0.35em] text-black/40">
@@ -2856,6 +3030,7 @@ export default function Home() {
                     ? "border-red-400 focus:border-red-500"
                     : "border-black/10 focus:border-black/40"
                 }`}
+                disabled={status !== "idle"}
                 placeholder="Username"
                 maxLength={USERNAME_MAX_LENGTH}
                 required
@@ -2878,6 +3053,7 @@ export default function Home() {
                   <button
                     type="button"
                     key={tone}
+                    disabled={status !== "idle"}
                     onClick={() => setSkin(tone)}
                     className={`h-10 w-10 rounded-full border-2 transition ${
                       skin === tone ? "border-black" : "border-black/20"
@@ -2888,12 +3064,62 @@ export default function Home() {
                 ))}
               </div>
             </div>
+            {status !== "idle" && (
+              <div className="queue-panel mt-6 rounded-2xl px-4 py-4">
+                <div className="flex items-center gap-4">
+                  <div
+                    className="queue-count-ring"
+                    style={{
+                      background: `conic-gradient(#0b1220 ${Math.round(
+                        matchmakingProgress * 360
+                      )}deg, rgba(13, 18, 32, 0.08) 0deg)`,
+                    }}
+                  >
+                    <span>{status === "matchmaking" ? matchmakingSeconds : "..."}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.32em] text-black/45">
+                      {status === "matchmaking" ? "Matchmaking" : "Match Found"}
+                    </p>
+                    <p className="mt-1 text-base font-semibold text-black">
+                      {status === "matchmaking"
+                        ? "Holding queue for nearby players"
+                        : "Preparing arena"}
+                    </p>
+                    <p className="mt-1 text-sm text-black/55">
+                      {status === "matchmaking"
+                        ? "Bots will fill any empty slots after the search."
+                        : "Loading the drop zone now."}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-black/10">
+                  <div
+                    className="h-full rounded-full bg-[#0b1220] transition-[width] duration-200"
+                    style={{ width: `${Math.round(matchmakingProgress * 100)}%` }}
+                  />
+                </div>
+                {status === "matchmaking" && (
+                  <button
+                    type="button"
+                    className="ui-button mt-4 w-full rounded-xl py-2 text-[11px]"
+                    onClick={cancelMatchmaking}
+                  >
+                    Cancel Search
+                  </button>
+                )}
+              </div>
+            )}
             <button
               type="submit"
-              disabled={status === "connecting"}
+              disabled={status !== "idle"}
               className="ui-button ui-button-primary mt-6 w-full rounded-xl py-3 text-sm"
             >
-              {status === "connecting" ? "Connecting..." : "Enter Match"}
+              {status === "matchmaking"
+                ? `Finding Match ${matchmakingSeconds}s`
+                : status === "connecting"
+                  ? "Preparing Arena"
+                  : "Enter Match"}
             </button>
             <div className="ui-panel-soft mt-6 rounded-2xl px-4 py-3">
               <p className="text-xs uppercase tracking-[0.3em] text-black/50">Controls</p>
