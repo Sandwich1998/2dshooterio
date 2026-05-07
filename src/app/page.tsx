@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/refs */
-
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -97,6 +95,8 @@ type InputState = {
   down: boolean;
   left: boolean;
   right: boolean;
+  moveX: number;
+  moveY: number;
   aimX: number;
   aimY: number;
   shoot: boolean;
@@ -120,8 +120,15 @@ type MatchStatus = "idle" | "matchmaking" | "connecting" | "ready";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001";
 const INTERP_DELAY = 35;
-const CLIENT_SPEED = 260;
+const CLIENT_SPEED = 320;
 const CLIENT_RADIUS = 14;
+const LOCAL_RECONCILE_RATE = 7;
+const LOCAL_IDLE_RECONCILE_RATE = 18;
+const LOCAL_SNAP_DISTANCE = 120;
+const CAMERA_LOCAL_RATE = 28;
+const CAMERA_SPECTATE_RATE = 14;
+const REMOTE_RENDER_RATE = 24;
+const AIM_SMOOTH_RATE = 34;
 const WEAPON_ICON_BASE = "/weapons/csgo";
 const USERNAME_MAX_LENGTH = 16;
 const MATCHMAKING_DURATION_MS = 10000;
@@ -151,11 +158,18 @@ const MOVEMENT_KEYS = new Set(["w", "a", "s", "d"]);
 const normalizeUsername = (value: string) =>
   value.replace(/\s+/g, " ").trim().slice(0, USERNAME_MAX_LENGTH);
 
-const getInputDirection = (input: InputState) => {
-  const x = Number(input.right) - Number(input.left);
-  const y = Number(input.down) - Number(input.up);
-  const len = Math.hypot(x, y) || 1;
-  return { x: x / len, y: y / len };
+const getInputMotion = (input: InputState) => {
+  const analogX = Number.isFinite(input.moveX) ? clamp(input.moveX, -1, 1) : 0;
+  const analogY = Number.isFinite(input.moveY) ? clamp(input.moveY, -1, 1) : 0;
+  const keyX = Number(input.right) - Number(input.left);
+  const keyY = Number(input.down) - Number(input.up);
+  const x = Math.abs(analogX) > 0.001 ? analogX : keyX;
+  const y = Math.abs(analogY) > 0.001 ? analogY : keyY;
+  const len = Math.hypot(x, y);
+  if (len <= 0.001) {
+    return { x: 0, y: 0, amount: 0 };
+  }
+  return { x: x / len, y: y / len, amount: Math.min(1, len) };
 };
 
 const circleIntersectsRect = (
@@ -228,6 +242,8 @@ export default function Home() {
     down: false,
     left: false,
     right: false,
+    moveX: 0,
+    moveY: 0,
     aimX: 1,
     aimY: 0,
     shoot: false,
@@ -264,7 +280,6 @@ export default function Home() {
   const [perfMode, setPerfMode] = useState(false);
   const [isMobileUi, setIsMobileUi] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
-  const [touchControlsReady, setTouchControlsReady] = useState(false);
   const [matchmakingEndsAt, setMatchmakingEndsAt] = useState(0);
   const [deployEndsAt, setDeployEndsAt] = useState(0);
   const skins = useMemo(
@@ -323,8 +338,6 @@ export default function Home() {
   const snapshotsRef = useRef<ServerState[]>([]);
   const lastHitAtRef = useRef(0);
   const lastHitConfirmRef = useRef(0);
-  const [hitFlash, setHitFlash] = useState(0);
-  const [hitMarker, setHitMarker] = useState(0);
   const screenShakeRef = useRef(0);
   const lastShrinkAtRef = useRef(0);
   const [zoneBanner, setZoneBanner] = useState(0);
@@ -353,6 +366,10 @@ export default function Home() {
   const gridPatternSizeRef = useRef(0);
   const dprRef = useRef(1);
   const lastFrameRef = useRef(0);
+  const isMobileUiRef = useRef(false);
+  const perfModeRef = useRef(false);
+  const hitFlashUntilRef = useRef(0);
+  const hitMarkerUntilRef = useRef(0);
   const predictedRef = useRef<{
     id: string;
     x: number;
@@ -434,6 +451,8 @@ export default function Home() {
     inputRef.current.down = pressedKeysRef.current.has("s");
     inputRef.current.left = pressedKeysRef.current.has("a");
     inputRef.current.right = pressedKeysRef.current.has("d");
+    inputRef.current.moveX = Number(inputRef.current.right) - Number(inputRef.current.left);
+    inputRef.current.moveY = Number(inputRef.current.down) - Number(inputRef.current.up);
   };
 
   const clearHeldInput = () => {
@@ -442,6 +461,8 @@ export default function Home() {
     inputRef.current.down = false;
     inputRef.current.left = false;
     inputRef.current.right = false;
+    inputRef.current.moveX = 0;
+    inputRef.current.moveY = 0;
     inputRef.current.shoot = false;
     inputRef.current.reload = false;
     inputRef.current.interact = false;
@@ -626,10 +647,20 @@ export default function Home() {
   const syncMoveStickInput = () => {
     const stick = moveStickRef.current;
     const deadZone = 0.18;
-    inputRef.current.left = stick.active && stick.x < -deadZone;
-    inputRef.current.right = stick.active && stick.x > deadZone;
-    inputRef.current.up = stick.active && stick.y < -deadZone;
-    inputRef.current.down = stick.active && stick.y > deadZone;
+    const len = stick.active ? Math.hypot(stick.x, stick.y) : 0;
+    if (len > deadZone) {
+      const scaledLen = (len - deadZone) / (1 - deadZone);
+      const scale = Math.min(1, scaledLen) / len;
+      inputRef.current.moveX = stick.x * scale;
+      inputRef.current.moveY = stick.y * scale;
+    } else {
+      inputRef.current.moveX = 0;
+      inputRef.current.moveY = 0;
+    }
+    inputRef.current.left = inputRef.current.moveX < -deadZone;
+    inputRef.current.right = inputRef.current.moveX > deadZone;
+    inputRef.current.up = inputRef.current.moveY < -deadZone;
+    inputRef.current.down = inputRef.current.moveY > deadZone;
   };
 
   const updateAimFromStick = (x: number, y: number) => {
@@ -1036,6 +1067,14 @@ export default function Home() {
   );
 
   useEffect(() => {
+    perfModeRef.current = perfMode;
+  }, [perfMode]);
+
+  useEffect(() => {
+    isMobileUiRef.current = isMobileUi;
+  }, [isMobileUi]);
+
+  useEffect(() => {
     const updateTouchProfile = () => {
       const viewport = window.visualViewport;
       const width = viewport?.width ?? window.innerWidth;
@@ -1136,9 +1175,6 @@ export default function Home() {
     const handleMouseMove = (event: MouseEvent) => {
       if (inputLockedRef.current) return;
       mouseRef.current = { x: event.clientX, y: event.clientY };
-      if (inputRef.current.shoot) {
-        sendInputNow();
-      }
     };
 
     const handleMouseDown = () => {
@@ -1250,6 +1286,7 @@ export default function Home() {
     if (status !== "ready") {
       clearHeldInput();
       predictedRef.current = null;
+      renderPosRef.current.clear();
       cancelReadyTick();
     }
   }, [status]);
@@ -1553,13 +1590,16 @@ export default function Home() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const getRenderDpr = () =>
+      perfModeRef.current
+        ? Math.min(1.25, window.devicePixelRatio || 1)
+        : Math.min(1.5, window.devicePixelRatio || 1);
+
     const resize = () => {
       const viewport = window.visualViewport;
       const width = viewport?.width ?? window.innerWidth;
       const height = viewport?.height ?? window.innerHeight;
-      const dpr = perfMode
-        ? Math.min(1.25, window.devicePixelRatio || 1)
-        : Math.min(1.5, window.devicePixelRatio || 1);
+      const dpr = getRenderDpr();
       dprRef.current = dpr;
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
@@ -1573,6 +1613,17 @@ export default function Home() {
 
     let rafId = 0;
     const render = () => {
+      const viewport = window.visualViewport;
+      const viewportWidth = viewport?.width ?? window.innerWidth;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const expectedDpr = getRenderDpr();
+      if (
+        Math.abs(expectedDpr - dprRef.current) > 0.01 ||
+        canvas.width !== Math.floor(viewportWidth * expectedDpr) ||
+        canvas.height !== Math.floor(viewportHeight * expectedDpr)
+      ) {
+        resize();
+      }
       const dpr = dprRef.current;
       const latestState = stateRef.current;
       let state = latestState;
@@ -1636,29 +1687,41 @@ export default function Home() {
       const lastFrame = lastFrameRef.current;
       const dt = lastFrame ? Math.min(0.05, Math.max(0.001, (now - lastFrame) / 1000)) : 1 / 60;
       lastFrameRef.current = now;
-      const inputDir = getInputDirection(inputRef.current);
+      const inputMotion = getInputMotion(inputRef.current);
       let predictedMe = me;
       if (authoritativeMe && authoritativeMe.alive) {
-        const sinceServerUpdate = latestState ? Math.max(0, now - latestState.time) / 1000 : 0;
-        const leadTime = Math.min(0.05, sinceServerUpdate + 1 / 60);
-        const inputLen = Math.hypot(inputDir.x, inputDir.y);
-        if (inputLen > 0) {
+        const previousPrediction =
+          predictedRef.current?.id === authoritativeMe.id ? predictedRef.current : null;
+        let predictionX = previousPrediction?.x ?? authoritativeMe.x;
+        let predictionY = previousPrediction?.y ?? authoritativeMe.y;
+        const drift = Math.hypot(predictionX - authoritativeMe.x, predictionY - authoritativeMe.y);
+        if (!previousPrediction || !lastFrame || drift > LOCAL_SNAP_DISTANCE) {
+          predictionX = authoritativeMe.x;
+          predictionY = authoritativeMe.y;
+        } else {
+          const reconcileRate =
+            inputMotion.amount > 0 ? LOCAL_RECONCILE_RATE : LOCAL_IDLE_RECONCILE_RATE;
+          const reconcile = 1 - Math.exp(-dt * reconcileRate);
+          predictionX = lerp(predictionX, authoritativeMe.x, reconcile);
+          predictionY = lerp(predictionY, authoritativeMe.y, reconcile);
+        }
+        if (inputMotion.amount > 0) {
           const move = moveWithCollisionsClient(
-            authoritativeMe.x,
-            authoritativeMe.y,
-            inputDir.x * CLIENT_SPEED * leadTime,
-            inputDir.y * CLIENT_SPEED * leadTime,
+            predictionX,
+            predictionY,
+            inputMotion.x * CLIENT_SPEED * inputMotion.amount * dt,
+            inputMotion.y * CLIENT_SPEED * inputMotion.amount * dt,
             mapRef.current,
             wallsRef.current
           );
-          predictedMe = { ...authoritativeMe, x: move.x, y: move.y };
-        } else {
-          predictedMe = authoritativeMe;
+          predictionX = move.x;
+          predictionY = move.y;
         }
+        predictedMe = { ...authoritativeMe, x: predictionX, y: predictionY };
         predictedRef.current = {
           id: authoritativeMe.id,
-          x: predictedMe.x,
-          y: predictedMe.y,
+          x: predictionX,
+          y: predictionY,
           serverX: authoritativeMe.x,
           serverY: authoritativeMe.y,
         };
@@ -1667,7 +1730,8 @@ export default function Home() {
       }
       const alivePlayers = state.players.filter((player) => player.alive);
       const playerIds = new Set(state.players.map((player) => player.id));
-      const lowFx = perfMode || state.players.length > 18 || state.shots.length > 20;
+      const currentIsMobileUi = isMobileUiRef.current;
+      const lowFx = perfModeRef.current || state.players.length > 18 || state.shots.length > 20;
       const spectateTarget =
         (spectateRef.current ? playersById.get(spectateRef.current) : undefined) ??
         (me?.alive ? me : alivePlayers[0]) ??
@@ -1687,11 +1751,12 @@ export default function Home() {
       const targetX = camTarget ? camTarget.x : state.map.width / 2;
       const targetY = camTarget ? camTarget.y : state.map.height / 2;
       const followingLocalPlayer = camTarget?.id === myIdRef.current && Boolean(predictedMe?.alive);
-      if (!lastFrame || followingLocalPlayer) {
+      if (!lastFrame) {
         camRef.current.x = targetX;
         camRef.current.y = targetY;
       } else {
-        const camSmooth = 1 - Math.exp(-dt * 16);
+        const camRate = followingLocalPlayer ? CAMERA_LOCAL_RATE : CAMERA_SPECTATE_RATE;
+        const camSmooth = 1 - Math.exp(-dt * camRate);
         camRef.current.x = lerp(camRef.current.x, targetX, camSmooth);
         camRef.current.y = lerp(camRef.current.y, targetY, camSmooth);
       }
@@ -1715,7 +1780,7 @@ export default function Home() {
         );
       }
 
-      const zoom = isMobileUi ? 0.22 : 1.15;
+      const zoom = currentIsMobileUi ? 0.22 : 1.15;
       const worldToScreen = (x: number, y: number) => ({
         x: (x - camX) * zoom + width / 2,
         y: (y - camY) * zoom + height / 2,
@@ -1727,8 +1792,9 @@ export default function Home() {
       const mouse = mouseRef.current;
       const targetAimX = mouse.x - width / 2;
       const targetAimY = mouse.y - height / 2;
-      aimSmoothRef.current.x = lerp(aimSmoothRef.current.x, targetAimX, 0.5);
-      aimSmoothRef.current.y = lerp(aimSmoothRef.current.y, targetAimY, 0.5);
+      const aimSmooth = 1 - Math.exp(-dt * AIM_SMOOTH_RATE);
+      aimSmoothRef.current.x = lerp(aimSmoothRef.current.x, targetAimX, aimSmooth);
+      aimSmoothRef.current.y = lerp(aimSmoothRef.current.y, targetAimY, aimSmooth);
       inputRef.current.aimX = aimSmoothRef.current.x;
       inputRef.current.aimY = aimSmoothRef.current.y;
 
@@ -1788,11 +1854,15 @@ export default function Home() {
         ctx.restore();
       }
 
-      ctx.strokeStyle = isMobileUi ? "rgba(79, 140, 255, 0.44)" : "rgba(79, 140, 255, 0.9)";
-      ctx.lineWidth = isMobileUi ? 1 : 3;
+      ctx.strokeStyle = currentIsMobileUi
+        ? "rgba(79, 140, 255, 0.44)"
+        : "rgba(79, 140, 255, 0.9)";
+      ctx.lineWidth = currentIsMobileUi ? 1 : 3;
       if (!lowFx) {
-        ctx.shadowColor = isMobileUi ? "rgba(108, 75, 255, 0.08)" : "rgba(108, 75, 255, 0.3)";
-        ctx.shadowBlur = isMobileUi ? 2 : 10;
+        ctx.shadowColor = currentIsMobileUi
+          ? "rgba(108, 75, 255, 0.08)"
+          : "rgba(108, 75, 255, 0.3)";
+        ctx.shadowBlur = currentIsMobileUi ? 2 : 10;
       }
       ctx.beginPath();
       ctx.arc(zonePos.x, zonePos.y, state.safeZone.radius, 0, Math.PI * 2);
@@ -2005,8 +2075,16 @@ export default function Home() {
                 const existing = renderPosRef.current.get(player.id);
                 return existing
                   ? {
-                      x: lerp(existing.x, targetPlayer.x, Math.min(1, dt * 12)),
-                      y: lerp(existing.y, targetPlayer.y, Math.min(1, dt * 12)),
+                      x: lerp(
+                        existing.x,
+                        targetPlayer.x,
+                        1 - Math.exp(-dt * REMOTE_RENDER_RATE)
+                      ),
+                      y: lerp(
+                        existing.y,
+                        targetPlayer.y,
+                        1 - Math.exp(-dt * REMOTE_RENDER_RATE)
+                      ),
                     }
                   : { x: targetPlayer.x, y: targetPlayer.y };
               })();
@@ -2076,11 +2154,11 @@ export default function Home() {
       });
 
       const nowMs = Date.now();
-      if (hitFlash > nowMs) {
+      if (hitFlashUntilRef.current > nowMs) {
         ctx.fillStyle = "rgba(255, 68, 76, 0.18)";
         ctx.fillRect(0, 0, width, height);
       }
-      if (hitMarker > nowMs) {
+      if (hitMarkerUntilRef.current > nowMs) {
         ctx.save();
         ctx.strokeStyle = "rgba(0, 0, 0, 0.65)";
         ctx.lineWidth = 4;
@@ -2100,7 +2178,7 @@ export default function Home() {
         ctx.restore();
       }
 
-      const showDesktopMinimap = !isMobileUi && width >= 1100 && height >= 700;
+      const showDesktopMinimap = !currentIsMobileUi && width >= 1100 && height >= 700;
       if (showDesktopMinimap) {
         const minimapSize = 160;
         const miniX = 24;
@@ -2195,12 +2273,12 @@ export default function Home() {
       if (me) {
         if (me.lastHitAt > lastHitAtRef.current) {
           lastHitAtRef.current = me.lastHitAt;
-          setHitFlash(Date.now() + 160);
+          hitFlashUntilRef.current = Date.now() + 160;
           screenShakeRef.current = 6;
         }
         if (me.lastHitConfirmAt > lastHitConfirmRef.current) {
           lastHitConfirmRef.current = me.lastHitConfirmAt;
-          setHitMarker(Date.now() + 120);
+          hitMarkerUntilRef.current = Date.now() + 120;
         }
       }
 
@@ -2317,6 +2395,8 @@ export default function Home() {
       window.removeEventListener("resize", resize);
       window.visualViewport?.removeEventListener("resize", resize);
     };
+    // The canvas loop reads mutable refs so it can stay mounted without restarting on HUD updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSpectate = (direction: -1 | 1) => {
@@ -2809,7 +2889,6 @@ export default function Home() {
                 onPointerDown={(event) => {
                   if (!isMobileUi) return;
                   event.preventDefault();
-                  setTouchControlsReady(true);
                   const next = moveStickRef.current;
                   next.pointerId = event.pointerId;
                   next.startX = event.clientX;
@@ -2919,7 +2998,6 @@ export default function Home() {
                 onPointerDown={(event) => {
                   if (!isMobileUi) return;
                   event.preventDefault();
-                  setTouchControlsReady(true);
                   const next = aimStickRef.current;
                   next.pointerId = event.pointerId;
                   next.startX = event.clientX;

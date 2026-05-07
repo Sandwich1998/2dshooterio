@@ -8,6 +8,8 @@ type InputState = {
   down: boolean;
   left: boolean;
   right: boolean;
+  moveX: number;
+  moveY: number;
   aimX: number;
   aimY: number;
   shoot: boolean;
@@ -113,7 +115,7 @@ const DT = 1 / TICK_RATE;
 const PORT = Number(process.env.SERVER_PORT ?? process.env.PORT ?? 3001);
 
 const MAP = { width: 3600, height: 3600 };
-const PLAYER_SPEED = 260;
+const PLAYER_SPEED = 320;
 const PLAYER_RADIUS = 14;
 const FOG_DAMAGE_PER_SEC = 7;
 const SAFE_ZONE_INTERVAL_MS = 18000;
@@ -369,6 +371,7 @@ type RoomState = {
   chatLog: ChatMessage[];
   matchOverAt: number;
   startAt: number;
+  lastTickAt: number;
   lastBroadcastAt: number;
   safeZone: SafeZone;
 };
@@ -404,6 +407,8 @@ const createInput = (): InputState => ({
   down: false,
   left: false,
   right: false,
+  moveX: 0,
+  moveY: 0,
   aimX: 1,
   aimY: 0,
   shoot: false,
@@ -422,6 +427,20 @@ const vecLength = (x: number, y: number) => Math.hypot(x, y);
 const normalize = (x: number, y: number): Vec2 => {
   const len = vecLength(x, y) || 1;
   return { x: x / len, y: y / len };
+};
+
+const getInputMotion = (input: InputState) => {
+  const analogX = Number.isFinite(input.moveX) ? clampNumber(input.moveX, -1, 1) : 0;
+  const analogY = Number.isFinite(input.moveY) ? clampNumber(input.moveY, -1, 1) : 0;
+  const keyX = Number(input.right) - Number(input.left);
+  const keyY = Number(input.down) - Number(input.up);
+  const x = Math.abs(analogX) > 0.001 ? analogX : keyX;
+  const y = Math.abs(analogY) > 0.001 ? analogY : keyY;
+  const len = vecLength(x, y);
+  if (len <= 0.001) {
+    return { x: 0, y: 0, amount: 0 };
+  }
+  return { x: x / len, y: y / len, amount: Math.min(1, len) };
 };
 
 const randomInRange = (min: number, max: number) =>
@@ -736,6 +755,8 @@ const applyBotBrain = (room: RoomState, bot: Player) => {
     down: move.y > 0.2,
     left: move.x < -0.2,
     right: move.x > 0.2,
+    moveX: move.x,
+    moveY: move.y,
     aimX,
     aimY,
     shoot: shouldShoot && activeSlot.ammo > 0,
@@ -759,6 +780,7 @@ const createRoom = (): RoomState => {
     chatLog: [],
     matchOverAt: 0,
     startAt: 0,
+    lastTickAt: Date.now(),
     lastBroadcastAt: 0,
     safeZone: createSafeZone(),
   };
@@ -1001,6 +1023,8 @@ const fireWeapon = (room: RoomState, player: Player, now: number) => {
 
 const tickRoom = (room: RoomState) => {
   const now = Date.now();
+  const dt = clampNumber((now - room.lastTickAt) / 1000 || DT, 0.001, 0.05);
+  room.lastTickAt = now;
   ensureCrates(room);
   ensureBots(room);
 
@@ -1036,12 +1060,14 @@ const tickRoom = (room: RoomState) => {
       }
     }
 
-    const moveX = Number(player.input.right) - Number(player.input.left);
-    const moveY = Number(player.input.down) - Number(player.input.up);
-    const move = normalize(moveX, moveY);
+    const move = getInputMotion(player.input);
     player.velX = 0;
     player.velY = 0;
-    moveWithCollisions(player, move.x * PLAYER_SPEED * DT, move.y * PLAYER_SPEED * DT);
+    moveWithCollisions(
+      player,
+      move.x * PLAYER_SPEED * move.amount * dt,
+      move.y * PLAYER_SPEED * move.amount * dt
+    );
 
     if (player.input.shoot) {
       fireWeapon(room, player, now);
@@ -1072,7 +1098,7 @@ const tickRoom = (room: RoomState) => {
 
     const distToZone = distance(player, room.safeZone);
     if (distToZone > room.safeZone.radius) {
-      player.hp -= FOG_DAMAGE_PER_SEC * DT;
+      player.hp -= FOG_DAMAGE_PER_SEC * dt;
       if (player.hp <= 0) {
         player.hp = 0;
         player.alive = false;
@@ -1297,11 +1323,15 @@ wss.on("connection", (socket) => {
         if (rate.inputCount > MAX_INPUTS_PER_SEC) return;
         const aimX = Number(msg.aimX);
         const aimY = Number(msg.aimY);
+        const moveX = Number(msg.moveX);
+        const moveY = Number(msg.moveY);
         current.input = {
           up: Boolean(msg.up),
           down: Boolean(msg.down),
           left: Boolean(msg.left),
           right: Boolean(msg.right),
+          moveX: Number.isFinite(moveX) ? clampNumber(moveX, -1, 1) : 0,
+          moveY: Number.isFinite(moveY) ? clampNumber(moveY, -1, 1) : 0,
           aimX: Number.isFinite(aimX) ? clampNumber(aimX, -2000, 2000) : 1,
           aimY: Number.isFinite(aimY) ? clampNumber(aimY, -2000, 2000) : 0,
           shoot: Boolean(msg.shoot),
